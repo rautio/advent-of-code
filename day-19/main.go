@@ -119,7 +119,7 @@ func solveBluePrint(bp BluePrint, time int) int {
 			newS.ore -= bp.GeodeRobot.ore
 			newS.obsidian -= bp.GeodeRobot.obsidian
 			newS.GeodeRobot++
-			if max < newS.geode + newS.time && newS.time > 0 {
+			if max < newS.geode + newS.time && newS.time >= 0 {
 				queue = append(queue, newS)
 			}
 			continue
@@ -129,7 +129,7 @@ func solveBluePrint(bp BluePrint, time int) int {
 			newS.ore -= bp.ObsidianRobot.ore
 			newS.clay -= bp.ObsidianRobot.clay
 			newS.ObsidianRobot++
-			if max < newS.geode + newS.time && newS.time > 0 {
+			if max < newS.geode + newS.time && newS.time >= 0 {
 				queue = append(queue, newS)
 			}
 		}
@@ -137,7 +137,7 @@ func solveBluePrint(bp BluePrint, time int) int {
 			newS := s
 			newS.ore -= bp.ClayRobot.ore
 			newS.ClayRobot++
-			if max < newS.geode + newS.time && newS.time > 0 {
+			if max < newS.geode + newS.time && newS.time >= 0 {
 				queue = append(queue, newS)
 			}
 		}
@@ -145,7 +145,7 @@ func solveBluePrint(bp BluePrint, time int) int {
 			newS := s
 			newS.ore -= bp.OreRobot.ore
 			newS.OreRobot++
-			if max < newS.geode + newS.time && newS.time > 0 {
+			if max < newS.geode + newS.time && newS.time >= 0 {
 				queue = append(queue, newS)
 			}
 		}
