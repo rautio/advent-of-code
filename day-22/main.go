@@ -105,17 +105,13 @@ type NewCube struct {
 	coords coordFlip
 }
 
-func flip(x Coord,y Coord) (Coord, Coord){
-	return x,y 
-}
-
 func wrapCube(outOfBounds Coord, cubes [][][]Coord, dir Coord, cube int, board map[Coord]string, max int) (Coord, int, Coord, bool) {
 	// Hard coded mapping of the next cube, coordinate and direction when wrapping a cube
 	// { [cube] : { [incomingDirection]: nextCube } }
 	cubeDirections := map[int]map[Coord]NewCube{}
 	up := Coord{0,-1}
-	right := Coord{1,0}
 	down := Coord{0,1}
+	right := Coord{1,0}
 	left := Coord{-1,0}
 	// up, right, down, left
 	cubeDirections[0] = map[Coord]NewCube{}
@@ -166,16 +162,10 @@ func isInCube(coord Coord, max int) bool {
 	return true
 }
 
-type seenKey struct {
-	cube int
-	dir Coord
-}
-
 func solveCube(cubes [][][]Coord, board map[Coord]string, instructions []string, max int) (Coord, Coord){
 	curCube := 1
 	cur := Coord{0,0} // Coordinate in cube
 	dir := Coord{1,0}
-	seen := map[seenKey]bool{}
 	for _, instruction := range instructions {
 		// 90° clockwise rotation: (x,y) becomes (y,-x)
 		// 90° counterclockwise rotation: (x,y) becomes (-y,x)
@@ -186,20 +176,12 @@ func solveCube(cubes [][][]Coord, board map[Coord]string, instructions []string,
 		} else {
 			n,_ := strconv.Atoi(instruction)
 			skip := false
-			// fmt.Printf("cur: %d, n: %d\n", cur, n)
 			for i := 0; i < n; i++ {
 				next := add(cur, dir)
-				// fmt.Printf("next: %d\n", next)
 				ok := isInCube(next, max-1)
 				if !ok {
-					newCur, newCube, newDir, stop := wrapCube(cur, cubes, dir, curCube, board, max-1)
-					k := seenKey{curCube, dir}
-					_, seenOk := seen[k]
-					if !seenOk {
-						seen[k] = true
-						// fmt.Printf("prev: %d, dir: %d, cube: %d, newCur: %d, newCube: %d, newDir: %d\n", cur, dir, curCube, newCur, newCube, newDir)
-					}
-					// fmt.Printf("cur: %d, newCur: %d\n", cur, newCur)
+					// Need to move to a new cube
+					newCur, newCube, newDir, stop := wrapCube(next, cubes, dir, curCube, board, max-1)
 					if stop {
 						skip = true
 						break
@@ -210,8 +192,6 @@ func solveCube(cubes [][][]Coord, board map[Coord]string, instructions []string,
 				} else {
 					nextBoardCoord := cubes[curCube][next.y][next.x]
 					nextBoard := board[nextBoardCoord]
-					// fmt.Printf("next: %d, nextBoard: %s, nextBoardCoord: %d\n", next, nextBoard, nextBoardCoord)
-					// fmt.Printf("NextBoard: %s, boardCoord: %d, curcube: %d, cur: %d\n", nextBoard, nextBoardCoord, curCube, cur)
 					if nextBoard == "#" {
 						// Need to stop
 						skip = true
@@ -228,7 +208,6 @@ func solveCube(cubes [][][]Coord, board map[Coord]string, instructions []string,
 		}
 	}
 	// Map cur to its board position
-	fmt.Printf("cur: %d, curCube: %d, dir: %d\n", cur, curCube, dir)
 	boardCur := cubes[curCube][cur.y][cur.x]
 	return boardCur, dir
 }
@@ -276,13 +255,17 @@ func solveBoard(board map[Coord]string, start Coord, instructions []string, maxX
 }
 
 func dirVal(dir Coord) int {
-	if dir.x == 0 && dir.y == 1 {
+	up := Coord{0,-1} // 3
+	down := Coord{0,1} // 1
+	// right := Coord{1,0} // 0
+	left := Coord{-1,0} // 2
+	if dir == down {
 		return 1
 	}
-	if dir.x == -1 && dir.y == 0 {
+	if dir == left {
 		return 2
 	}
-	if dir.x == 0 && dir.y == -1 {
+	if dir == up {
 		return 3
 	}
 	return 0
@@ -298,9 +281,6 @@ func main() {
 	// Bottom two lines don't have the board
 	board, maxX := parseBoard(in[:len(in)-2])
 	cubes := parseCubes(in[:len(in)-2])
-	for i, cube := range cubes {
-		fmt.Printf("cube: %d, rows: %d, columns: %d, first: %d, firstVal %s, second: %d, secondVal%s, last:%d\n", i, len(cube), len(cubes[i][0]), cubes[i][0][0],board[cubes[i][0][0]], cubes[i][0][1],board[cubes[i][0][1]], cubes[i][49][49])
-	}
 	start := Coord{}
 	for i := 0; i < len(in[0]); i++ {
 		c := Coord{i,0}
@@ -326,7 +306,6 @@ func main() {
 	end, dir := solveBoard(board, start, instructions, maxX, maxY)
 	partOneAnswer := 1000 * (end.y+1) + 4 * (end.x+1) + dirVal(dir)
 	end2, dir2 := solveCube(cubes, board, instructions, 50)
-	fmt.Printf("end2: %d, dir2: %d, start: %d\n", end2, dir2, start)
 	partTwoAnswer := 1000 * (end2.y+1) + 4 * (end2.x+1) + dirVal(dir2)
 	fmt.Printf("Part One Answer: %d\n", partOneAnswer)
 	fmt.Printf("Part Two Answer: %d\n", partTwoAnswer)
