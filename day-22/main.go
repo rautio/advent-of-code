@@ -35,14 +35,10 @@ func parseCubes(input []string) [][][]Coord{
 		r1 = append(r1, c1)
 		if len(r1) == 50 {
 			if len(r2) > 0 {
-				// cube := r2
-				// fmt.Printf("New r2! rows: %d, columns: %d, firstVal: %d, secondVal: %d, lastVal:%d\n", len(cube), len(cube[0]), cube[0][0], cube[0][1], cube[49][49])
 				cubes = append(cubes, r2)
 				r2 = nil
 			}
 			cubes = append(cubes, r1)
-			// cube := r1
-			// fmt.Printf("New r1! rows: %d, columns: %d, firstVal: %d, secondVal: %d, lastVal:%d\n", len(cube), len(cube[0]), cube[0][0], cube[0][1], cube[49][49])
 			r1 = nil
 		}
 	}
@@ -159,17 +155,12 @@ func wrapCube(outOfBounds Coord, cubes [][][]Coord, dir Coord, cube int, board m
 	newDir := nc.dir
 	boardCoord := cubes[newCube][newCur.y][newCur.x]
 	stop := board[boardCoord] == "#"
-	// fmt.Printf("Stop: %s\n", stop)
-	// if !stop {
-	// 	fmt.Printf("prev: %d, dir: %d, cube: %d, newCur: %d, newCube: %d, newDir: %d\n", outOfBounds, dir, cube, newCur, newCube, newDir)
-	// }
 
 	return newCur, newCube, newDir, stop
 }
 
 func isInCube(coord Coord, max int) bool {
 	if coord.x < 0 || coord.y < 0 || coord.x > max || coord.y > max {
-		// fmt.Println("not in cube!")
 		return false
 	}
 	return true
@@ -181,21 +172,20 @@ type seenKey struct {
 }
 
 func solveCube(cubes [][][]Coord, board map[Coord]string, instructions []string, max int) (Coord, Coord){
-	curCube := 0
+	curCube := 1
 	cur := Coord{0,0} // Coordinate in cube
 	dir := Coord{1,0}
 	seen := map[seenKey]bool{}
-	// fmt.Printf("Instructions: %s\n", instructions)
 	for _, instruction := range instructions {
 		// 90° clockwise rotation: (x,y) becomes (y,-x)
 		// 90° counterclockwise rotation: (x,y) becomes (-y,x)
-		// fmt.Printf("instruction: %s\n", instruction)
 		if instruction == "R" {
 			dir = Coord{-dir.y, dir.x}
 		} else if instruction == "L"{
 			dir = Coord{dir.y, -dir.x}
 		} else {
 			n,_ := strconv.Atoi(instruction)
+			skip := false
 			// fmt.Printf("cur: %d, n: %d\n", cur, n)
 			for i := 0; i < n; i++ {
 				next := add(cur, dir)
@@ -207,32 +197,33 @@ func solveCube(cubes [][][]Coord, board map[Coord]string, instructions []string,
 					_, seenOk := seen[k]
 					if !seenOk {
 						seen[k] = true
-						fmt.Printf("prev: %d, dir: %d, cube: %d, newCur: %d, newCube: %d, newDir: %d\n", cur, dir, curCube, newCur, newCube, newDir)
+						// fmt.Printf("prev: %d, dir: %d, cube: %d, newCur: %d, newCube: %d, newDir: %d\n", cur, dir, curCube, newCur, newCube, newDir)
 					}
+					// fmt.Printf("cur: %d, newCur: %d\n", cur, newCur)
 					if stop {
+						skip = true
 						break
 					}
-					if newCur != cur {
-						cur = newCur
-						curCube = newCube
-						dir = newDir
-						continue;
-					}
+					cur = newCur
+					curCube = newCube
+					dir = newDir
 				} else {
 					nextBoardCoord := cubes[curCube][next.y][next.x]
 					nextBoard := board[nextBoardCoord]
+					// fmt.Printf("next: %d, nextBoard: %s, nextBoardCoord: %d\n", next, nextBoard, nextBoardCoord)
 					// fmt.Printf("NextBoard: %s, boardCoord: %d, curcube: %d, cur: %d\n", nextBoard, nextBoardCoord, curCube, cur)
 					if nextBoard == "#" {
 						// Need to stop
-						// fmt.Println("breaking!")
+						skip = true
 						break
 					}
 					if nextBoard == "." {
 						cur = next
-						// Continue
-						continue
 					}
 				}
+			}
+			if skip {
+				continue
 			}
 		}
 	}
@@ -307,11 +298,9 @@ func main() {
 	// Bottom two lines don't have the board
 	board, maxX := parseBoard(in[:len(in)-2])
 	cubes := parseCubes(in[:len(in)-2])
-	// fmt.Printf("lenCube: %d\n", len(cubes))
-	// for i, cube := range cubes {
-	// 	fmt.Printf("cube: %d, rows: %d, columns: %d, first: %d, firstVal %s, second: %d, secondVal%s, last:%d\n", i, len(cube), len(cubes[i][0]), cubes[i][0][0],board[cubes[i][0][0]], cubes[i][0][1],board[cubes[i][0][1]], cubes[i][49][49])
-	// 	// fmt.Println(cube)
-	// }
+	for i, cube := range cubes {
+		fmt.Printf("cube: %d, rows: %d, columns: %d, first: %d, firstVal %s, second: %d, secondVal%s, last:%d\n", i, len(cube), len(cubes[i][0]), cubes[i][0][0],board[cubes[i][0][0]], cubes[i][0][1],board[cubes[i][0][1]], cubes[i][49][49])
+	}
 	start := Coord{}
 	for i := 0; i < len(in[0]); i++ {
 		c := Coord{i,0}
@@ -337,7 +326,7 @@ func main() {
 	end, dir := solveBoard(board, start, instructions, maxX, maxY)
 	partOneAnswer := 1000 * (end.y+1) + 4 * (end.x+1) + dirVal(dir)
 	end2, dir2 := solveCube(cubes, board, instructions, 50)
-	fmt.Printf("end2: %d, dir2: %d\n", end2, dir2)
+	fmt.Printf("end2: %d, dir2: %d, start: %d\n", end2, dir2, start)
 	partTwoAnswer := 1000 * (end2.y+1) + 4 * (end2.x+1) + dirVal(dir2)
 	fmt.Printf("Part One Answer: %d\n", partOneAnswer)
 	fmt.Printf("Part Two Answer: %d\n", partTwoAnswer)
