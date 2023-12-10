@@ -17,6 +17,26 @@ fn is_game_valid(sets: Vec<CubeSet>, max: CubeSet) -> bool {
     return true;
 }
 
+fn least_cubes(sets: Vec<CubeSet>) -> CubeSet {
+    let mut c = CubeSet {
+        red: 0,
+        green: 0,
+        blue: 0,
+    };
+    for set in sets {
+        if set.red > c.red {
+            c.red = set.red;
+        }
+        if set.blue > c.blue {
+            c.blue = set.blue;
+        }
+        if set.green > c.green {
+            c.green = set.green;
+        }
+    }
+    return c;
+}
+
 fn parse_sets(line: &str) -> Vec<CubeSet> {
     let re: Regex = Regex::new(r"([0-9]+) (red|blue|green)").unwrap();
     let mut cubes: Vec<CubeSet> = Vec::new();
@@ -65,4 +85,15 @@ fn main() {
         }
     }
     println!("Part 1: {0}", sum);
+    sum = 0;
+    // Part 2
+    for line in read_to_string("./part2.txt").unwrap().lines() {
+        let cap = id_re.captures(line).unwrap();
+        let id: u32 = cap.get(1).unwrap().as_str().parse().unwrap();
+        let sets = cap.get(2).unwrap().as_str();
+        let cube_sets = parse_sets(&sets);
+        let c = least_cubes(cube_sets);
+        sum += c.red * c.green * c.blue;
+    }
+    println!("Part 2: {0}", sum);
 }
