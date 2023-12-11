@@ -13,11 +13,12 @@ struct G {
 fn shortest_path(
     start: G,
     end: G,
-    max_x: usize,
-    max_y: usize,
-    existing_paths: &HashMap<Vec<G>, u32>,
-) -> u32 {
-    let mut distances: HashMap<G, u32> = HashMap::new();
+    existing_paths: &HashMap<Vec<G>, u64>,
+    row_has_g: &HashMap<usize, bool>,
+    col_has_g: &HashMap<usize, bool>,
+    skip_amount: u64,
+) -> u64 {
+    let mut distances: HashMap<G, u64> = HashMap::new();
     let mut seen: HashMap<G, bool> = HashMap::new();
     distances.insert(end, 0);
     // Possible moves
@@ -40,9 +41,9 @@ fn shortest_path(
         }
 
         let mut possible_paths: Vec<G> = Vec::new();
+        // Only move in the given direction if start is in that direction
         // Up
         if cur_g.y > 0 && start.y < cur_g.y {
-            // Only move in the given direction if start is in that direction
             possible_paths.push(G {
                 x: cur_g.x,
                 y: cur_g.y - 1,
@@ -70,9 +71,15 @@ fn shortest_path(
             });
         }
         for g in possible_paths {
-            if g.x <= max_x && g.y <= max_y && !distances.contains_key(&g) && !seen.contains_key(&g)
-            {
-                let cur_distance = distances.get(&cur_g).unwrap() + 1;
+            if !distances.contains_key(&g) && !seen.contains_key(&g) {
+                let mut dis = 1;
+                if g.y != cur_g.y && row_has_g.contains_key(&g.y) && !row_has_g.get(&g.y).unwrap() {
+                    dis += skip_amount - 1;
+                }
+                if g.x != cur_g.x && col_has_g.contains_key(&g.x) && !col_has_g.get(&g.x).unwrap() {
+                    dis += skip_amount - 1;
+                }
+                let cur_distance = distances.get(&cur_g).unwrap() + dis;
                 distances.insert(g, cur_distance);
                 queue.push_back(g);
             }
@@ -82,10 +89,34 @@ fn shortest_path(
     return *distances.get(&start).unwrap();
 }
 
+fn sum_shortest_paths(
+    galaxies: &Vec<G>,
+    row_has_g: &HashMap<usize, bool>,
+    col_has_g: &HashMap<usize, bool>,
+    skip_amount: u64,
+) -> u64 {
+    let mut sum: u64 = 0;
+    let mut shortest_paths: HashMap<Vec<G>, u64> = HashMap::new();
+    for (j, g) in galaxies.iter().enumerate() {
+        for i in j + 1..galaxies.len() {
+            let shortest = shortest_path(
+                *g,
+                galaxies[i],
+                &shortest_paths,
+                row_has_g,
+                col_has_g,
+                skip_amount,
+            );
+            shortest_paths.insert(vec![*g, galaxies[i]], shortest);
+            sum += shortest;
+        }
+    }
+    return sum;
+}
+
 fn main() {
-    let now = Instant::now();
-    let mut raw_galaxies: Vec<G> = Vec::new();
-    let mut galaxies: Vec<G> = Vec::new(); // Expanded galaxies
+    let mut now = Instant::now();
+    let mut galaxies: Vec<G> = Vec::new();
     let mut row_has_g: HashMap<usize, bool> = HashMap::new();
     let mut col_has_g: HashMap<usize, bool> = HashMap::new();
     for (y, line) in read_to_string("./input.txt").unwrap().lines().enumerate() {
@@ -98,49 +129,24 @@ fn main() {
                 col_has_g.insert(x, false);
             }
             if *c == '#' {
-                raw_galaxies.push(G { x, y });
+                galaxies.push(G { x, y });
                 col_has_g.insert(x, true);
                 row_has_g.insert(y, true);
             }
         }
     }
-    let mut max_x = 0;
-    let mut max_y = 0;
-    // Expand
-    for g in &raw_galaxies {
-        let mut x = g.x;
-        let mut y = g.y;
-        for i in 0..g.x {
-            if col_has_g.contains_key(&i) && !col_has_g.get(&i).unwrap() {
-                // It's empty
-                x += 1;
-            }
-        }
-        for i in 0..g.y {
-            if row_has_g.contains_key(&i) && !row_has_g.get(&i).unwrap() {
-                // It's empty
-                y += 1;
-            }
-        }
-        if x > max_x {
-            max_x = x;
-        }
-        if y > max_y {
-            max_y = y;
-        }
-        galaxies.push(G { x, y });
-    }
-    let mut sum = 0;
-    let mut shortest_paths: HashMap<Vec<G>, u32> = HashMap::new();
-    for (j, g) in galaxies.iter().enumerate() {
-        for i in j + 1..galaxies.len() {
-            let shortest = shortest_path(*g, galaxies[i], max_x, max_y, &shortest_paths);
-            shortest_paths.insert(vec![*g, galaxies[i]], shortest);
-            sum += shortest;
-        }
-    }
     // Part 1
-    println!("Part 1: {}", sum);
+    println!(
+        "Part 1: {}",
+        sum_shortest_paths(&galaxies, &row_has_g, &col_has_g, 2)
+    );
+    let elapsed = now.elapsed();
+    println!("Done in: {:.2?}!", elapsed);
+    now = Instant::now();
+    println!(
+        "Part 2: {}",
+        sum_shortest_paths(&galaxies, &row_has_g, &col_has_g, 1000000)
+    );
     let elapsed = now.elapsed();
     println!("Done in: {:.2?}!", elapsed);
 }
