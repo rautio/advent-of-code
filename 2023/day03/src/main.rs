@@ -23,8 +23,9 @@ fn main() {
     let mut y = 0;
     let mut x = 0;
     let mut parts = HashMap::new();
+    let mut gears: HashMap<String, Vec<u32>> = HashMap::new();
     // Parse all the numbers and parts
-    for line in read_to_string("./part1.txt").unwrap().lines() {
+    for line in read_to_string("./input.txt").unwrap().lines() {
         let mut n = Number {
             x: 0,
             y: 0,
@@ -50,6 +51,9 @@ fn main() {
             }
             if c != '.' && !c.is_digit(10) {
                 parts.insert(create_key(x, y), c);
+                if c == '*' {
+                    gears.insert(create_key(x, y), Vec::new());
+                }
             }
             x += 1;
         }
@@ -86,10 +90,23 @@ fn main() {
         // Test all keys
         for k in keys {
             if parts.contains_key(&k) {
-                sum += n.num.parse::<u32>().unwrap();
+                let new_num = n.num.parse::<u32>().unwrap();
+                sum += new_num;
+                let c = parts.get(&k).unwrap();
+                if *c == '*' {
+                    // It's a gear
+                    gears.entry(k).or_insert_with(Vec::new).push(new_num);
+                }
                 break;
             }
         }
     }
     println!("Part 1: {}", sum);
+    sum = 0;
+    for g in gears.values() {
+        if g.len() == 2 {
+            sum += g[0] * g[1]
+        }
+    }
+    println!("Part 2: {}", sum);
 }
