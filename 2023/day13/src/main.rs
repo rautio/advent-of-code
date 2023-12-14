@@ -3,11 +3,6 @@ use std::collections::VecDeque;
 use std::fs::read_to_string;
 use std::time::Instant;
 
-#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
-struct Pt {
-    x: usize,
-    y: usize,
-}
 // . # . # #
 //  ^ ^ ^
 //  1 2 3
