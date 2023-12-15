@@ -1,5 +1,4 @@
 use lazy_static::lazy_static;
-use memoize::memoize;
 use regex::Regex;
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -23,8 +22,9 @@ fn create_key(row: &str, nums: &str) -> String {
     return s;
 }
 
-fn find_arrangements(row: &str, nums: &str, cache: &mut HashMap<String, u32>) -> u32 {
-    // let row = strs.join(".");
+fn find_arrangements(r: &str, nums: &str, cache: &mut HashMap<String, u64>) -> u64 {
+    let row_split_raw = split_row(r);
+    let row = row_split_raw.join(".");
     let key = create_key(&row, nums);
     if cache.contains_key(&key) {
         return *cache.get(&key).unwrap();
@@ -38,10 +38,16 @@ fn find_arrangements(row: &str, nums: &str, cache: &mut HashMap<String, u32>) ->
         cache.insert(key, 0);
         return 0;
     }
-    let mut row_split: VecDeque<&str> = row.split(".").collect::<VecDeque<&str>>();
+    let mut row_split: VecDeque<&str> = VecDeque::from(row_split_raw);
     row_split.retain(|&s| s != "");
+    let count_hashes = row.matches("#").count() as u32;
     let mut num_split: VecDeque<&str> = nums.split(",").collect::<VecDeque<&str>>();
     num_split.retain(|&s| s != "");
+    let num_total: u32 = num_split.iter().map(|&i| i.parse::<u32>().unwrap()).sum();
+    if count_hashes > num_total {
+        cache.insert(key, 0);
+        return 0;
+    }
     if num_split.len() > 0 && row_split.len() > 0 {
         let fs = row_split.pop_front().unwrap();
         let ns = num_split.pop_front().unwrap();
@@ -53,7 +59,9 @@ fn find_arrangements(row: &str, nums: &str, cache: &mut HashMap<String, u32>) ->
                 // The first one matches!
                 let newr: Vec<&str> = row_split.into();
                 let newn: Vec<&str> = num_split.into();
-                return find_arrangements(&newr.join("."), &newn.join(","), cache);
+                let c = find_arrangements(&newr.join("."), &newn.join(","), cache);
+                cache.insert(key, c);
+                return c;
             }
         }
     }
@@ -70,35 +78,6 @@ fn find_arrangements(row: &str, nums: &str, cache: &mut HashMap<String, u32>) ->
     cache.insert(create_key(&hash_row, nums), hashes);
     sum += hashes;
     return sum;
-}
-
-fn build_possibles(row: &str) -> Vec<String> {
-    let mut possibles: Vec<String> = Vec::new();
-    let mut q: VecDeque<String> = VecDeque::new();
-    q.push_back(row.to_string());
-    while !q.is_empty() {
-        let cur = q.pop_front().unwrap();
-        if !cur.chars().any(|c| c == '?') {
-            // All clear, add!
-            possibles.push(cur);
-        } else {
-            // There is a ?
-            let i = cur.find('?').unwrap();
-            // It's a #!
-            let mut temp1: Vec<char> = cur.chars().collect();
-            if let Some(ch) = temp1.get_mut(i) {
-                *ch = '#';
-            }
-            q.push_back(temp1.into_iter().collect());
-            // It's a .!
-            let mut temp2: Vec<char> = cur.chars().collect();
-            if let Some(ch) = temp2.get_mut(i) {
-                *ch = '.';
-            }
-            q.push_back(temp2.into_iter().collect());
-        }
-    }
-    return possibles;
 }
 
 fn is_valid(s: &str, nums: &str) -> bool {
@@ -127,31 +106,22 @@ fn main() {
         let s = line.split(' ').collect::<Vec<&str>>();
         let row = s[0];
         let nums = s[1];
-        let mut cache: HashMap<String, u32> = HashMap::new();
+        let mut cache: HashMap<String, u64> = HashMap::new();
         let strs = split_row(row);
         sum_1 += find_arrangements(&strs.join("."), &nums, &mut cache);
-        // let itr = 5;
-        // let mut strs_repeated = strs.join(".");
-        // let mut nums_repeated = String::from(nums);
-        // for i in 0..4 {
-        //     strs_repeated += "?";
-        //     strs_repeated += &strs.join(".");
-        //     nums_repeated += ",";
-        //     nums_repeated += &nums;
-        // }
-        // println!("strs_repeated: {:?}", strs_repeated);
-        // println!("nums_repeated: {:?}", nums_repeated);
-        // let mut cache2: HashMap<String, u32> = HashMap::new();
-        // sum_2 += find_arrangements(&strs_repeated, &nums_repeated, &mut cache2)
-        // let possibles = build_possibles(row);
-        // for p in possibles.iter() {
-        //     if is_valid(p, &nums) {
-        //         sum += 1;
-        //     }
-        // }
+        let mut row_repeated = String::from(row);
+        let mut nums_repeated = String::from(nums);
+        for _i in 0..4 {
+            row_repeated += "?";
+            row_repeated += &row;
+            nums_repeated += ",";
+            nums_repeated += &nums;
+        }
+        let strs_repeated = split_row(&row_repeated);
+        sum_2 += find_arrangements(&strs_repeated.join("."), &nums_repeated, &mut cache);
     }
     println!("Part 1: {}", sum_1);
-    // println!("Part 2: {}", sum_2);
+    println!("Part 2: {}", sum_2);
     let elapsed = now.elapsed();
     println!("Done in: {:.2?}!", elapsed);
 }
