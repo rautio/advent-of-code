@@ -103,22 +103,16 @@ fn get_next_beams(next: &Pt, dir: Pt, c: char) -> Vec<Beam> {
     return beams;
 }
 
-fn walk_grid(grid: HashMap<Pt, char>, max_x: usize, max_y: usize) -> HashMap<Pt, bool> {
+fn walk_grid(
+    start: Beam,
+    grid: &HashMap<Pt, char>,
+    max_x: usize,
+    max_y: usize,
+) -> HashMap<Pt, bool> {
     let mut energized: HashMap<Pt, bool> = HashMap::new();
     let mut seen: HashMap<Beam, bool> = HashMap::new();
     let mut beams: VecDeque<Beam> = VecDeque::new();
-    beams.push_back(Beam {
-        x: -1,
-        y: 0,
-        dir: RIGHT,
-    });
-    let mut i = 0;
-    energized.insert(Pt { x: 0, y: 0 }, true);
-    let mut prev: Beam = Beam {
-        x: -1,
-        y: 0,
-        dir: RIGHT,
-    };
+    beams.push_back(start);
     while beams.len() > 0 {
         let b = beams.pop_front().unwrap();
         let next = Pt {
@@ -143,8 +137,47 @@ fn walk_grid(grid: HashMap<Pt, char>, max_x: usize, max_y: usize) -> HashMap<Pt,
     return energized;
 }
 
+fn max_grid_energized(grid: &HashMap<Pt, char>, max_x: usize, max_y: usize) -> HashMap<Pt, bool> {
+    let mut max: HashMap<Pt, bool> = HashMap::new();
+    let mut starts: Vec<Beam> = Vec::new();
+    for _x in 0..max_x {
+        let x: i32 = _x as i32;
+        starts.push(Beam {
+            x: x,
+            y: -1,
+            dir: DOWN,
+        });
+        starts.push(Beam {
+            x: x,
+            y: max_y as i32 + 1,
+            dir: UP,
+        });
+    }
+    for _y in 0..max_y {
+        let y: i32 = _y as i32;
+        starts.push(Beam {
+            x: -1,
+            y: y,
+            dir: RIGHT,
+        });
+        starts.push(Beam {
+            x: max_x as i32 + 1,
+            y: y,
+            dir: LEFT,
+        });
+    }
+    for s in starts {
+        let e = walk_grid(s, &grid, max_x, max_y);
+        if e.len() > max.len() {
+            max = e;
+        }
+    }
+
+    return max;
+}
+
 fn main() {
-    let now = Instant::now();
+    let mut now = Instant::now();
     let mut grid: HashMap<Pt, char> = HashMap::new();
     let mut max_x = 0;
     let mut max_y = 0;
@@ -170,8 +203,16 @@ fn main() {
             );
         }
     }
-    let energized = walk_grid(grid, max_x, max_y);
+    let start = Beam {
+        x: -1,
+        y: 0,
+        dir: RIGHT,
+    };
+    let energized = walk_grid(start, &grid, max_x, max_y);
     println!("Part 1: {}", energized.len());
-    // println!("Part 2: {}", sum_boxes(boxes));
+    println!("Done in: {:.2?}!", now.elapsed());
+    now = Instant::now();
+    let max = max_grid_energized(&grid, max_x, max_y);
+    println!("Part 2: {}", max.len());
     println!("Done in: {:.2?}!", now.elapsed());
 }
