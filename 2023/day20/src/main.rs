@@ -1,3 +1,4 @@
+use num::integer::lcm;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fs::read_to_string;
@@ -46,7 +47,7 @@ fn send_pulses(
     map: &HashMap<String, Module>,
     flip_states: &mut HashMap<String, bool>,
     con_states: &mut HashMap<String, HashMap<String, Pulse>>,
-) -> (u32, u32) {
+) -> (u32, u32, Vec<State>) {
     let mut low_pulses = 0;
     let mut high_pulses = 0;
     let mut pulses: VecDeque<State> = VecDeque::new();
@@ -55,8 +56,10 @@ fn send_pulses(
         pulse: Pulse::Low,
         from: String::from("button"),
     });
+    let mut total_pulses: Vec<State> = Vec::new();
     while pulses.len() > 0 {
         let p = pulses.pop_front().unwrap();
+        total_pulses.push(p.clone());
         // println!("{:?} -{:?} -> {:?}", p.from, p.pulse, p.input);
         if p.pulse == Pulse::High {
             high_pulses += 1;
@@ -117,12 +120,15 @@ fn send_pulses(
             }
         }
     }
-    return (low_pulses, high_pulses);
+    return (low_pulses, high_pulses, total_pulses);
 }
 
-fn iterate(map: &HashMap<String, Module>, count_iterations: usize) -> u32 {
-    let mut low_pulses = 0;
-    let mut high_pulses = 0;
+fn prep(
+    map: &HashMap<String, Module>,
+) -> (
+    HashMap<String, bool>,
+    HashMap<String, HashMap<String, Pulse>>,
+) {
     // [name] -> on/off
     let mut flip_states: HashMap<String, bool> = HashMap::new();
     // [name] -> ( [input] -> high/low )
@@ -151,13 +157,57 @@ fn iterate(map: &HashMap<String, Module>, count_iterations: usize) -> u32 {
             }
         }
     }
+    return (flip_states, con_states);
+}
+
+fn solve_part1(map: &HashMap<String, Module>, count_iterations: usize) -> u32 {
+    let mut low_pulses = 0;
+    let mut high_pulses = 0;
+    let (mut flip_states, mut con_states) = prep(map);
     // Run iterations
     for _i in 0..count_iterations {
-        let (low, high) = send_pulses(&map, &mut flip_states, &mut con_states);
+        let (low, high, _pulses) = send_pulses(&map, &mut flip_states, &mut con_states);
         low_pulses += low;
         high_pulses += high;
     }
     return low_pulses * high_pulses;
+}
+
+fn solve_part2(map: &HashMap<String, Module>) -> u64 {
+    let mut button_presses = 0;
+    // pv, qh, xm, hz -> &kh -> rx
+    // kh needs to have received all high pulses to send low pulse to rx
+    // count how many button presses for each input to send high
+    let (mut flip_states, mut con_states) = prep(map);
+    let mut counts: HashMap<String, u32> = HashMap::new();
+    let conjunction = String::from("kh");
+    let inputs: Vec<String> = con_states
+        .get(&conjunction)
+        .unwrap()
+        .keys()
+        .cloned()
+        .collect();
+    for i in 0..inputs.len() {
+        counts.insert(inputs[i].clone(), 0);
+    }
+    // Run iterations
+    for _j in 0..100000 {
+        button_presses += 1;
+        let (_l, _h, pulses) = send_pulses(&map, &mut flip_states, &mut con_states);
+        // println!("pulses : {:?}", pulses.len());
+        for p in pulses {
+            if counts.contains_key(&p.input) && p.pulse == Pulse::Low {
+                if *counts.get(&p.input).unwrap() == 0 {
+                    counts.insert(p.input, button_presses);
+                }
+            }
+        }
+    }
+    let mut res: u64 = 1;
+    for (_k, v) in counts {
+        res = lcm(res, v as u64);
+    }
+    return res;
 }
 
 fn parse_input(input_file: &str) -> HashMap<String, Module> {
@@ -199,10 +249,9 @@ fn parse_input(input_file: &str) -> HashMap<String, Module> {
 fn main() {
     let mut now = Instant::now();
     let map = parse_input("./input.txt");
-    let part1 = iterate(&map, 1000);
-    println!("Part 1: {}", part1);
+    println!("Part 1: {}", solve_part1(&map, 1000));
     println!("Done in: {:?}!", now.elapsed());
     now = Instant::now();
-    // println!("Part 2: {:?}", get_combinations(&workflows));
-    // println!("Done in: {:.2?}!", now.elapsed());
+    println!("Part 2: {}", solve_part2(&map));
+    println!("Done in: {:?}!", now.elapsed());
 }
