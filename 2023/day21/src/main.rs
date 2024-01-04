@@ -86,6 +86,9 @@ fn step(grid: &HashMap<Pt, Val>, start: &Pt, steps: usize) -> Vec<Pt> {
     return res;
 }
 
+// len grid = 131
+// 26501365 % 131 = 65
+
 fn main() {
     let mut now = Instant::now();
     let (grid, start) = parse_grid("./input.txt");
@@ -93,6 +96,6 @@ fn main() {
     let elapsed = now.elapsed();
     println!("Done in: {:.2?}!", elapsed);
     now = Instant::now();
-    // println!("Part 2: {}", weigh_load(&rotated, max));
+    println!("Part 2: {}", step(&grid, &start, 10000).len());
     println!("Done in: {:.2?}!", now.elapsed());
 }
