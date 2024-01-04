@@ -127,10 +127,10 @@ fn move_brick(
     return (bricks, grid);
 }
 
-fn settle_bricks(b: &Vec<Brick>) -> (Vec<Brick>, u32) {
-    let mut moves = 0;
+fn settle_bricks(b: &Vec<Brick>) -> (Vec<Brick>, usize) {
     let mut bricks = b.clone();
     let mut grid: HashMap<Pt, usize> = HashMap::new();
+    let mut moved_bricks: HashMap<usize, bool> = HashMap::new();
 
     for (i, brick) in b.into_iter().enumerate() {
         let mut iter = brick.start.clone();
@@ -146,7 +146,7 @@ fn settle_bricks(b: &Vec<Brick>) -> (Vec<Brick>, u32) {
         for (i, brick) in bricks.clone().into_iter().enumerate() {
             if can_move(&brick, &grid) {
                 had_move = true;
-                moves += 1;
+                moved_bricks.insert(i, true);
                 let (new_bricks, new_grid) = move_brick(i, bricks, grid);
                 bricks = new_bricks;
                 grid = new_grid;
@@ -154,7 +154,7 @@ fn settle_bricks(b: &Vec<Brick>) -> (Vec<Brick>, u32) {
         }
         moved = had_move;
     }
-    return (bricks, moves);
+    return (bricks, moved_bricks.len());
 }
 
 fn solve_part1(bricks: &Vec<Brick>) -> u32 {
@@ -171,9 +171,23 @@ fn solve_part1(bricks: &Vec<Brick>) -> u32 {
     return removable_bricks;
 }
 
+fn solve_part2(bricks: &Vec<Brick>) -> usize {
+    let (settled_bricks, _moves) = settle_bricks(bricks);
+    let mut moved_bricks = 0;
+    for i in 0..settled_bricks.len() {
+        let mut new_bricks = settled_bricks.clone();
+        new_bricks.remove(i);
+        let (_b, moves) = settle_bricks(&new_bricks);
+        moved_bricks += moves;
+    }
+    return moved_bricks;
+}
 fn main() {
-    let now = Instant::now();
+    let mut now = Instant::now();
     let bricks = parse_input("./input.txt");
     println!("Part 1: {}", solve_part1(&bricks));
+    println!("Done in: {:?}!", now.elapsed());
+    now = Instant::now();
+    println!("Part 2: {}", solve_part2(&bricks));
     println!("Done in: {:?}!", now.elapsed());
 }
