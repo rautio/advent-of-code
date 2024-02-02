@@ -215,88 +215,6 @@ fn create_key(cur: &Marker, steps_taken: u32, dir: Pt) -> String {
     return key;
 }
 
-fn min_heat_loss_helper(
-    grid: &HashMap<Pt, u32>,
-    start: Marker,
-    steps_taken: u32,
-    end: Pt,
-    max: Pt,
-    prev: &HashMap<Pt, Pt>,
-    cache: &mut HashMap<String, u32>,
-) -> u32 {
-    let key = create_key(&start, steps_taken, start.dir);
-    if cache.contains_key(&key) {
-        return *cache.get(&key).unwrap();
-    }
-    if start.x == end.x && start.y == end.y {
-        // Made it!
-        let end_loss = *grid.get(&end).unwrap();
-        println!("end!");
-        println!("num steps: {}", prev.len());
-        print_grid(grid, prev, max);
-        println!("------");
-        return end_loss;
-    }
-    let mut min = 0;
-    let next = get_next_steps(start, steps_taken, max);
-    for _n in &next {
-        let n = *_n;
-        let np = Pt { x: n.x, y: n.y };
-        if !prev.contains_key(&np) {
-            let mut p_clone = prev.clone();
-            p_clone.insert(np, n.dir);
-            let mut steps = steps_taken;
-            if n.dir != start.dir {
-                steps = 0;
-            }
-            steps += 1;
-            let np_loss = grid.get(&np).unwrap();
-            let loss = np_loss;
-            let l = min_heat_loss_helper(grid, n, steps, end, max, &p_clone, cache);
-            // if start.x == 11 && start.y == 10 {
-            //     println!("------");
-            //     println!("cur: {:?}", start);
-            //     println!("next: {:?}", n);
-            //     println!("next step loss: {}", np_loss);
-            //     println!("loss to end: {}", l);
-            //     println!("------");
-            // }
-            // if start.x == 0 && start.y == 0 {
-            //     println!("START L: {}", l);
-            //     println!("np L: {}", np_loss);
-            // }
-            if l != 0 {
-                // 0 means we couldn't reach the end
-                let mut loss = *np_loss;
-                if np != end {
-                    loss += l;
-                }
-                if (min == 0 || loss < min) {
-                    min = loss;
-                }
-            }
-        }
-    }
-    if next.len() > 0 {
-        cache.insert(key.clone(), min);
-    }
-    if start.x == 11 && start.y == 11 {
-        println!("min loss: {}", min);
-    }
-    return min;
-}
-
-fn min_heat_loss(grid: &HashMap<Pt, u32>, start: Pt, end: Pt, max: Pt) -> u32 {
-    let mut cache: HashMap<String, u32> = HashMap::new();
-    let mut prev: HashMap<Pt, Pt> = HashMap::new();
-    let s = Marker {
-        x: start.x,
-        y: start.y,
-        dir: RIGHT,
-    };
-    return min_heat_loss_helper(grid, s, 0, end, max, &prev, &mut cache);
-}
-
 fn get_key(s: State) -> String {
     let mut key = String::from("");
     key += &s.x.to_string();
@@ -360,7 +278,6 @@ fn main() {
     println!("max: {:?}", max);
     println!(
         "Part 1: {}",
-        // min_heat_loss(&grid, Pt { x: 0, y: 0 }, max, max)
         solve(
             &grid,
             State {
