@@ -17,11 +17,20 @@ fn is_safe(levels: Vec<i32>) -> bool {
     true
 }
 
-fn count_safe(reports: Vec<Vec<i32>>) -> i32 {
+fn count_safe(reports: Vec<Vec<i32>>, dampener_enabled: bool) -> i32 {
     let mut count = 0;
-    for report in reports {
-        if is_safe(report) {
+    for levels in reports {
+        if is_safe(levels.clone()) {
             count += 1;
+        } else if dampener_enabled {
+            for i in 0..levels.len() - 1 {
+                let mut new_levels = levels.clone();
+                new_levels.remove(i);
+                if is_safe(new_levels) {
+                    count += 1;
+                    continue;
+                }
+            }
         }
     }
     count
@@ -30,7 +39,7 @@ fn count_safe(reports: Vec<Vec<i32>>) -> i32 {
 fn main() {
     let mut now = Instant::now();
     let mut reports: Vec<Vec<i32>> = Vec::new();
-    for line in read_to_string("./src/part1.txt").unwrap().lines() {
+    for line in read_to_string("./src/input.txt").unwrap().lines() {
         let levels: Vec<i32> = line
             .trim()
             .split_whitespace()
@@ -39,8 +48,10 @@ fn main() {
         reports.push(levels);
     }
     // Part 1
-    println!("Part 1: {}", count_safe(reports));
+    println!("Part 1: {}", count_safe(reports.clone(), false));
     println!("Done in: {:?}!", now.elapsed());
-    // Part 1
+    // Part 2
     now = Instant::now();
+    println!("Part 2: {}", count_safe(reports, true));
+    println!("Done in: {:?}!", now.elapsed());
 }
