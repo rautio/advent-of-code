@@ -61,6 +61,68 @@ fn count_xmas(grid: &HashMap<Pt, char>) -> i32 {
     count
 }
 
+fn count_mas(grid: &HashMap<Pt, char>, pt: &Pt) -> i32 {
+    // Has to be diagonals;
+    let corners = [
+        Pt {
+            x: pt.x - 1,
+            y: pt.y - 1,
+        },
+        Pt {
+            x: pt.x + 1,
+            y: pt.y - 1,
+        },
+        Pt {
+            x: pt.x - 1,
+            y: pt.y + 1,
+        },
+        Pt {
+            x: pt.x + 1,
+            y: pt.y + 1,
+        },
+    ];
+
+    // Validate we're within bounds;
+    for c in corners {
+        if !grid.contains_key(&c) {
+            return 0;
+        }
+    }
+
+    let left = vec![
+        *grid.get(&corners[0]).unwrap(),
+        *grid.get(&corners[3]).unwrap(),
+    ];
+    let right = vec![
+        *grid.get(&corners[1]).unwrap(),
+        *grid.get(&corners[2]).unwrap(),
+    ];
+    let mut has_left = false;
+    let mut has_right = false;
+    if (left[0] == 'M' && left[1] == 'S') || (left[0] == 'S' && left[1] == 'M') {
+        has_left = true;
+    }
+    if (right[0] == 'M' && right[1] == 'S') || (right[0] == 'S' && right[1] == 'M') {
+        has_right = true;
+    }
+
+    if has_right && has_left {
+        return 1;
+    }
+
+    0
+}
+
+fn count_masx(grid: &HashMap<Pt, char>) -> i32 {
+    let mut count = 0;
+    // Find Xs
+    for (p, c) in grid {
+        if *c == 'A' {
+            count += count_mas(&grid, &p);
+        }
+    }
+    count
+}
 fn main() {
     let mut now = Instant::now();
     let mut grid: HashMap<Pt, char> = HashMap::new();
@@ -78,7 +140,7 @@ fn main() {
     println!("Part 1: {}", count_xmas(&grid));
     println!("Done in: {:?}!", now.elapsed());
     // Part 2
-    // now = Instant::now();
-    // println!("Part 2: {}", 0);
-    // println!("Done in: {:?}!", now.elapsed());
+    now = Instant::now();
+    println!("Part 2: {}", count_masx(&grid));
+    println!("Done in: {:?}!", now.elapsed());
 }
