@@ -21,14 +21,16 @@ fn add(p1: &Pt, p2: &Pt) -> Pt {
     }
 }
 
-fn score_trailhead(start: Pt, grid: &HashMap<Pt, i32>) -> i32 {
+fn score_trailhead(start: Pt, grid: &HashMap<Pt, i32>) -> (i32, i32) {
     let mut trail: VecDeque<Pt> = VecDeque::new();
+    let mut rating = 0;
     trail.push_back(start);
     let mut ends: HashMap<Pt, bool> = HashMap::new();
     while trail.len() > 0 {
         let cur = trail.pop_front().unwrap();
         if *grid.get(&cur).unwrap() == 9 {
             ends.insert(cur, true);
+            rating += 1;
         } else {
             let next: Vec<Pt> = vec![N, W, S, E]
                 .into_iter()
@@ -41,20 +43,23 @@ fn score_trailhead(start: Pt, grid: &HashMap<Pt, i32>) -> i32 {
             }
         }
     }
-    ends.keys().len() as i32
+    (ends.keys().len() as i32, rating)
 }
 
-fn sum_trailheads(grid: &HashMap<Pt, i32>, trailheads: &Vec<Pt>) -> i32 {
-    let mut sum = 0;
+fn sum_trailheads(grid: &HashMap<Pt, i32>, trailheads: &Vec<Pt>) -> (i32, i32) {
+    let mut sum_score = 0;
+    let mut sum_rating = 0;
 
     for trailhead in trailheads {
-        sum += score_trailhead(*trailhead, grid);
+        let (score, rating) = score_trailhead(*trailhead, grid);
+        sum_score += score;
+        sum_rating += rating;
     }
 
-    sum
+    (sum_score, sum_rating)
 }
 fn main() {
-    let mut now = Instant::now();
+    let now = Instant::now();
     let mut grid: HashMap<Pt, i32> = HashMap::new();
     let mut trailheads: Vec<Pt> = Vec::new();
     let mut y = 0;
@@ -71,11 +76,8 @@ fn main() {
         }
         y += 1;
     }
-    // Part 1
-    println!("Part 1: {}", sum_trailheads(&grid, &trailheads));
-    println!("Done in: {:?}!", now.elapsed());
-    // Part 2
-    now = Instant::now();
-    println!("Part 2: {}", 0);
+    let (score, rating) = sum_trailheads(&grid, &trailheads);
+    println!("Part 1: {}", score);
+    println!("Part 2: {}", rating);
     println!("Done in: {:?}!", now.elapsed());
 }
