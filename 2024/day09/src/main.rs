@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::time::Instant;
 
@@ -8,11 +7,6 @@ struct Memory {
     is_free: bool,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
-struct FileBlock {
-    mem: Memory,
-    index: usize,
-}
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 struct Block {
     id: i32,
@@ -30,6 +24,24 @@ fn print_memory(mem: &Vec<Memory>) {
         }
     }
     println!("{}", res);
+}
+
+fn print_disk(disk: &Vec<Block>) {
+    print_memory(&disk_to_mem(disk));
+}
+
+fn disk_to_mem(disk: &Vec<Block>) -> Vec<Memory> {
+    let mut mem: Vec<Memory> = Vec::new();
+    for f in disk {
+        for _ in 0..f.len {
+            mem.push(Memory {
+                id: f.id,
+                is_free: f.is_free,
+            });
+        }
+    }
+
+    mem
 }
 
 fn sort_memory(mem: &mut Vec<Memory>) {
@@ -51,11 +63,11 @@ fn sort_disk(disk: &mut Vec<Block>) {
     while rpointer > 0 {
         let mut lpointer = 0;
         let right = disk[rpointer];
-        if (!right.is_free) {
+        if !right.is_free {
             while lpointer < rpointer {
                 let left = disk[lpointer];
                 // Fill and replace
-                if left.len > right.len {
+                if left.is_free && left.len > right.len {
                     disk[rpointer] = Block {
                         id: 0,
                         is_free: true,
@@ -63,7 +75,7 @@ fn sort_disk(disk: &mut Vec<Block>) {
                     };
                     disk[lpointer] = right;
                     disk.insert(
-                        lpointer,
+                        lpointer + 1,
                         Block {
                             id: 0,
                             is_free: true,
@@ -71,10 +83,14 @@ fn sort_disk(disk: &mut Vec<Block>) {
                         },
                     );
                     rpointer += 1; // We expanded the length
+                                   // print_disk(&disk);
+                    break;
                 }
                 // Swap
-                if left.len == right.len {
+                if left.is_free && left.len == right.len {
                     disk.swap(rpointer, lpointer);
+                    // print_disk(&disk);
+                    break;
                 }
                 lpointer += 1;
             }
@@ -96,23 +112,12 @@ fn checksum(mem: &Vec<Memory>) -> i64 {
 }
 
 fn checksum_disk(disk: &Vec<Block>) -> i64 {
-    let mut mem: Vec<Memory> = Vec::new();
-    for (i, f) in disk.into_iter().enumerate() {
-        for j in 0..f.len {
-            mem.push(Memory {
-                id: f.id,
-                is_free: f.is_free,
-            });
-        }
-    }
-
-    checksum(&mem)
+    checksum(&disk_to_mem(disk))
 }
 
 fn main() {
     let mut now = Instant::now();
     let mut memory1: Vec<Memory> = Vec::new();
-    let mut files: Vec<File> = Vec::new();
     let mut disk: Vec<Block> = Vec::new();
     for line in read_to_string("./src/input.txt").unwrap().lines() {
         let mut id = 0;
@@ -135,12 +140,12 @@ fn main() {
             }
         }
     }
-    let mut memory2 = memory1.clone();
     sort_memory(&mut memory1);
     // Part 1
     println!("Part 1: {}", checksum(&memory1));
     println!("Done in: {:?}!", now.elapsed());
     // Part 2
+    // print_disk(&disk);
     now = Instant::now();
     sort_disk(&mut disk);
     println!("Part 2: {}", checksum_disk(&disk));
