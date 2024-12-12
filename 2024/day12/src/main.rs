@@ -88,6 +88,49 @@ fn calc_perimeter(garden: Garden) -> usize {
     perimeter
 }
 
+fn calc_sides(garden: Garden) -> usize {
+    let mut side_pts: HashMap<(Pt, Pt), bool> = HashMap::new();
+    let pts = garden.pts.clone();
+    for cur in &pts {
+        let neighbors: Vec<Pt> = vec![N, E, S, W].into_iter().map(|p| add(p, *cur)).collect();
+        for n in neighbors {
+            if !pts.contains(&n) {
+                side_pts.insert((*cur, n), true);
+            }
+        }
+    }
+    let mut sides = 0;
+    let mut skip: HashMap<(Pt, Pt), bool> = HashMap::new();
+    for (cur, _) in side_pts.clone().into_iter() {
+        let (p1, p2) = cur;
+        if !skip.contains_key(&cur) {
+            sides += 1;
+            let mut ldiff = line_diff(p1, p2);
+            ldiff.x *= -1;
+            ldiff.y *= -1;
+            let rdiff = line_diff(p1, p2);
+            let mut left = (add(ldiff, p1), add(ldiff, p2));
+            let mut right = (add(rdiff, p1), add(rdiff, p2));
+            while side_pts.contains_key(&left) {
+                skip.insert(left, true);
+                left = (add(ldiff, left.0), add(ldiff, left.1));
+            }
+            while side_pts.contains_key(&right) {
+                skip.insert(right, true);
+                right = (add(rdiff, right.0), add(rdiff, right.1));
+            }
+        }
+    }
+    sides
+}
+
+fn line_diff(p1: Pt, p2: Pt) -> Pt {
+    if p1.x == p2.x {
+        return Pt { x: 1, y: 0 };
+    }
+    return Pt { x: 0, y: 1 };
+}
+
 fn fence_cost(grid: &HashMap<Pt, char>) -> usize {
     let gardens = find_gardens(grid);
     let mut total = 0;
@@ -96,6 +139,19 @@ fn fence_cost(grid: &HashMap<Pt, char>) -> usize {
         let perimeter = calc_perimeter(garden.clone());
         let area = garden.pts.len();
         total += perimeter * area;
+    }
+
+    total
+}
+
+fn bulk_fence_cost(grid: &HashMap<Pt, char>) -> usize {
+    let gardens = find_gardens(grid);
+    let mut total = 0;
+
+    for garden in gardens {
+        let sides = calc_sides(garden.clone());
+        let area = garden.pts.len();
+        total += sides * area;
     }
 
     total
@@ -115,6 +171,6 @@ fn main() {
         y += 1;
     }
     println!("Part 1: {}", fence_cost(&grid));
-    println!("Part 2: {}", 0);
+    println!("Part 2: {}", bulk_fence_cost(&grid));
     println!("Done in: {:?}!", now.elapsed());
 }
