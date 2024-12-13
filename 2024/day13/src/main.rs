@@ -1,6 +1,5 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::cmp;
 use std::fs::read_to_string;
 use std::time::Instant;
 
@@ -17,30 +16,43 @@ struct Game {
     prize: Pt,
 }
 
+fn determinant(matrix: &Vec<Vec<i64>>) -> i64 {
+    matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]
+}
+
+fn inverse_matrix(matrix: &Vec<Vec<i64>>) -> Vec<Vec<i64>> {
+    let mut inv: Vec<Vec<i64>> = Vec::new();
+    inv.push(vec![matrix[1][1], -1 * matrix[0][1]]);
+    inv.push(vec![-1 * matrix[1][0], matrix[0][0]]);
+    inv
+}
+
 fn play_game(game: &Game) -> (bool, i64) {
     let a = game.a;
     let b = game.b;
     let prize = game.prize;
-    let max_a = cmp::max(prize.x / a.x, prize.y / a.y) + 1;
-    let max_b = cmp::max(prize.x / b.x, prize.y / b.y) + 1;
     // A costs 3 tokens
     // B costs 1 tokens
-    let mut tokens = 3 * max_a + max_b;
-    let mut can_win = false;
-    for i in 0..max_a {
-        for j in 0..max_b {
-            let x = a.x * i + b.x * j;
-            let y = a.y * i + b.y * j;
-            if x == prize.x && y == prize.y {
-                can_win = true;
-                let cost = 3 * i + j;
-                if cost < tokens {
-                    tokens = cost;
-                }
-            }
-        }
+    let matrix: Vec<Vec<i64>> = vec![vec![a.x, b.x], vec![a.y, b.y]];
+    let det = determinant(&matrix);
+    if det == 0 {
+        // No solution
+        return (false, 0);
     }
-    (can_win, tokens)
+    let inv = inverse_matrix(&matrix);
+    let res: Vec<i64> = inv
+        .into_iter()
+        .map(|row| row[0] * prize.x + row[1] * prize.y)
+        .collect();
+    let a_count: f64 = res[0] as f64 / det as f64;
+    let b_count: f64 = res[1] as f64 / det as f64;
+
+    if a_count >= 0.0 && b_count >= 0.0 && a_count.fract() == 0.0 && b_count.fract() == 0.0 {
+        // There is a solution!
+        let tokens = 3 * a_count as i64 + b_count as i64;
+        return (true, tokens);
+    }
+    return (false, 0);
 }
 
 fn play_games(games: &Vec<Game>) -> (i64, usize) {
