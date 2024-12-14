@@ -105,6 +105,20 @@ fn print_robots(robots: &Vec<Robot>, board_max: Pt) {
     }
 }
 
+fn find_tree(robots: &Vec<Robot>, board_max: Pt, max_sec: i32) -> i32 {
+    // lowest safety score is likely the tree.
+    let mut safety = 0;
+    let mut min_sec = 0;
+    for s in 0..max_sec {
+        let safe = safety_factor(&move_robots(robots.clone(), s, board_max), board_max);
+        if safety == 0 || safe < safety {
+            min_sec = s;
+            safety = safe;
+        }
+    }
+    min_sec
+}
+
 fn main() {
     lazy_static! {
         static ref re: Regex = Regex::new(r"p=(-?\d*),(-?\d*) v=(-?\d*),(-?\d*)").unwrap();
@@ -127,12 +141,12 @@ fn main() {
     // Part 1
     // let board_max = Pt { x: 11, y: 7 };
     let board_max = Pt { x: 101, y: 103 };
-    let new_robots = move_robots(robots, 100, board_max);
+    let new_robots = move_robots(robots.clone(), 100, board_max);
     // print_robots(&new_robots, board_max);
     println!("Part 1: {}", safety_factor(&new_robots, board_max));
     println!("Done in: {:?}!", now.elapsed());
     // Part 2
     now = Instant::now();
-    println!("Part 2: {}", 0);
+    println!("Part 2: {}", find_tree(&robots, board_max, 10000));
     println!("Done in: {:?}!", now.elapsed());
 }
