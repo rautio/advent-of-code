@@ -19,7 +19,7 @@ struct Cursor {
     p: Pt,
     score: i32,
     dir: Pt,
-    path: Vec<(Pt, Pt)>,
+    path: Vec<(Pt, Pt, i32)>,
 }
 impl Cursor {
     pub fn new(p: Pt, dir: Pt, score: i32) -> Self {
@@ -48,7 +48,7 @@ fn can_move(p: Pt, grid: &HashMap<Pt, char>) -> bool {
     grid.contains_key(&p) && *grid.get(&p).unwrap() != '#'
 }
 
-fn print_path(path: Vec<(Pt, Pt)>, grid: &HashMap<Pt, char>) {
+fn print_path(path: Vec<(Pt, Pt, i32)>, grid: &HashMap<Pt, char>, use_o: bool) {
     let mut p = Pt::new(0, 0);
     let dirs: Vec<Pt> = vec![E, S, W, N];
     let chars: Vec<char> = vec!['>', 'v', '<', '^'];
@@ -58,10 +58,12 @@ fn print_path(path: Vec<(Pt, Pt)>, grid: &HashMap<Pt, char>) {
             let path_idx = path.iter().position(|&x| x.0 == p);
             if path_idx.is_none() || *grid.get(&p).unwrap() == 'S' {
                 line.push(*grid.get(&p).unwrap());
-            } else {
+            } else if !use_o {
                 let path = path[path_idx.unwrap()];
                 let dir_idx = dirs.iter().position(|&x| x == path.1).unwrap();
                 line.push(chars[dir_idx]);
+            } else {
+                line.push('O');
             }
             p.x += 1;
         }
@@ -71,18 +73,27 @@ fn print_path(path: Vec<(Pt, Pt)>, grid: &HashMap<Pt, char>) {
     }
 }
 
-fn min_score(grid: &HashMap<Pt, char>, start: Pt, end: Pt) -> i32 {
-    let dirs: Vec<Pt> = vec![E, S, W, N];
-    let mut seen: HashMap<(Pt, Pt), bool> = HashMap::new();
-    let mut scores: HashMap<Pt, i32> = HashMap::new();
-    scores.insert(start, 0);
-    seen.insert((start, E), true);
+fn min_score(grid: &HashMap<Pt, char>, start: Pt, end: Pt) -> (i32, usize) {
+    let dirs: Vec<Pt> = vec![N, E, S, W];
+    let mut seen: HashMap<(Pt, Pt), i32> = HashMap::new();
+    seen.insert((start, E), 0);
     let mut cursors = VecDeque::from([Cursor::new(start, E, 0)]);
     let mut min_score = 0;
-    let mut final_path: Vec<(Pt, Pt)> = Vec::new();
+    let mut final_path: Vec<(Pt, Pt, i32)> = Vec::new();
+    let mut paths: HashMap<(Pt, Pt, i32), Vec<(Pt, Pt, i32)>> = HashMap::new();
     while cursors.len() > 0 {
         let cur = cursors.pop_front().unwrap();
+        let path_key = (cur.p, cur.dir, cur.score);
+        if paths.contains_key(&path_key) {
+            paths
+                .get_mut(&path_key)
+                .unwrap()
+                .append(&mut cur.path.clone());
+        } else {
+            paths.insert(path_key, cur.path.clone());
+        }
         if cur.p == end {
+            // There are 4 possible directions for the end
             if min_score == 0 {
                 min_score = cur.score;
                 final_path = cur.path.clone();
@@ -105,18 +116,29 @@ fn min_score(grid: &HashMap<Pt, char>, start: Pt, end: Pt) -> i32 {
         let next = vec![forward, rotate_clockwise, rotate_counter_clockwise];
         for mut n in next {
             if can_move(n.p, grid) {
-                if !seen.contains_key(&(n.p, n.dir)) || *scores.get(&n.p).unwrap() > n.score {
-                    seen.insert((n.p, n.dir), true);
-                    scores.insert(n.p, n.score);
+                if !seen.contains_key(&(n.p, n.dir)) || *seen.get(&(n.p, n.dir)).unwrap() >= n.score
+                {
+                    seen.insert((n.p, n.dir), n.score);
                     n.path = cur.path.clone();
-                    n.path.push((cur.p, cur.dir));
+                    n.path.push((cur.p, cur.dir, cur.score));
                     cursors.push_back(n);
                 }
             }
         }
     }
-    print_path(final_path, grid);
-    min_score
+    // print_path(final_path.clone(), grid, false);
+    let mut pts: HashMap<Pt, bool> = HashMap::new();
+    let mut full_path: Vec<(Pt, Pt, i32)> = Vec::new();
+    for p in final_path {
+        if paths.contains_key(&p) {
+            for x in paths.get(&p).unwrap().clone() {
+                pts.insert(x.0, true);
+                full_path.push(x);
+            }
+        }
+    }
+    // print_path(full_path.clone(), grid, true);
+    (min_score, pts.keys().len() + 2)
 }
 
 fn main() {
@@ -140,7 +162,8 @@ fn main() {
         }
         y += 1;
     }
-    println!("Part 1: {}", min_score(&grid, start, end));
-    println!("Part 2: {}", 0);
+    let (min_score, best_seats) = min_score(&grid, start, end);
+    println!("Part 1: {}", min_score);
+    println!("Part 2: {}", best_seats);
     println!("Done in: {:?}!", now.elapsed());
 }
