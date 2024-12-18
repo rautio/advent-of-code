@@ -72,7 +72,7 @@ fn min_steps(bytes: Vec<Pt>, bytes_to_simulate: usize, max: Pt) -> i32 {
     for b in 0..bytes_to_simulate {
         grid.insert(bytes[b], '#');
     }
-    print_grid(&grid, vec![]);
+    // print_grid(&grid, vec![]);
 
     let mut steps: HashMap<Pt, i32> = HashMap::new();
     let mut start_state = State::new(Pt::new(0, 0), 0, HashMap::new());
@@ -80,7 +80,7 @@ fn min_steps(bytes: Vec<Pt>, bytes_to_simulate: usize, max: Pt) -> i32 {
     let mut states: VecDeque<State> = VecDeque::from([start_state]);
 
     while states.len() > 0 {
-        let mut state = states.pop_front().unwrap();
+        let state = states.pop_front().unwrap();
         let cur_p = state.p;
         let next: Vec<Pt> = vec![N, E, S, W]
             .into_iter()
@@ -92,7 +92,7 @@ fn min_steps(bytes: Vec<Pt>, bytes_to_simulate: usize, max: Pt) -> i32 {
         for n in next {
             let mut n_path = state.path.clone();
             n_path.insert(n, state.steps + 1);
-            let mut n_state = State::new(n, state.steps + 1, n_path);
+            let n_state = State::new(n, state.steps + 1, n_path);
             steps.insert(n, n_state.steps);
             states.push_back(n_state);
         }
@@ -111,7 +111,15 @@ fn main() {
             splits[1].parse::<i32>().unwrap(),
         ));
     }
-    println!("Part 1: {}", min_steps(bytes, 1024, Pt::new(70, 70)));
-    println!("Part 2: {}", 0);
+    println!(
+        "Part 1: {}",
+        min_steps(bytes.clone(), 1024, Pt::new(70, 70))
+    );
+    for i in 1024..bytes.len() {
+        if min_steps(bytes.clone(), i, Pt::new(70, 70)) == 0 {
+            println!("Part 2: {},{}", bytes[i - 1].x, bytes[i - 1].y);
+            break;
+        }
+    }
     println!("Done in: {:?}!", now.elapsed());
 }
