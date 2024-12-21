@@ -2,6 +2,52 @@ use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::time::Instant;
 
+fn count_possible(
+    towel: &str,
+    patterns: &Vec<&str>,
+    counter: i64,
+    memo: &mut HashMap<String, i64>,
+) -> i64 {
+    if memo.contains_key(towel) {
+        return *memo.get(towel).unwrap();
+    }
+    if towel.len() == 0 {
+        return counter + 1;
+    }
+    let mut next: Vec<String> = Vec::new();
+    for p in patterns {
+        if towel.starts_with(p) {
+            let mut new_towel = towel.to_string();
+            new_towel.replace_range(0..p.len(), "");
+            next.push(new_towel);
+        }
+    }
+    if next.len() == 0 {
+        memo.insert(towel.to_string(), 0);
+        return 0;
+    }
+    let mut res = counter;
+    for n in next {
+        let c = count_possible(&n, patterns, counter, memo);
+        res += c;
+        memo.insert(n, c);
+    }
+
+    memo.insert(towel.to_string(), res);
+    return res;
+}
+
+fn count_options(towels: &Vec<&str>, patterns: &Vec<&str>) -> i64 {
+    let mut total = 0;
+    let mut memo: HashMap<String, i64> = HashMap::new();
+
+    for t in towels {
+        let options = count_possible(t, patterns, 0, &mut memo);
+        total += options;
+    }
+    total
+}
+
 fn is_possible(towel: &str, patterns: &Vec<&str>, memo: &mut HashMap<String, bool>) -> bool {
     if memo.contains_key(towel) {
         return *memo.get(towel).unwrap();
@@ -59,7 +105,8 @@ fn main() {
         }
     }
     println!("Part 1: {}", filter_possible(&towels, &patterns).len());
+    println!("Done in: {:?}!", now.elapsed());
     now = Instant::now();
-    println!("Part 2: {}", 0);
+    println!("Part 2: {}", count_options(&towels, &patterns));
     println!("Done in: {:?}!", now.elapsed());
 }
