@@ -110,3 +110,72 @@ fn main() {
     println!("Part 2: {}", count_options(&towels, &patterns));
     println!("Done in: {:?}!", now.elapsed());
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_possible() {
+        assert_eq!(
+            is_possible(&"abc", &vec!["a", "b", "c"], &mut HashMap::new()),
+            true
+        );
+        assert_eq!(
+            is_possible(
+                &"brwrr",
+                &vec!["r", "wr", "b", "g", "bwu", "rb", "gb", "br"],
+                &mut HashMap::new()
+            ),
+            true
+        );
+    }
+
+    #[test]
+    fn test_is_not_possible() {
+        assert_eq!(
+            is_possible(&"abc", &vec!["a", "b"], &mut HashMap::new()),
+            false
+        );
+        assert_eq!(
+            is_possible(
+                &"ubwu",
+                &vec!["r", "wr", "b", "g", "bwu", "rb", "gb", "br"],
+                &mut HashMap::new()
+            ),
+            false
+        );
+    }
+    #[test]
+    fn test_count_possible() {
+        assert_eq!(
+            count_possible(&"abc", &vec!["a", "b", "c"], 0, &mut HashMap::new()),
+            1
+        );
+        assert_eq!(
+            count_possible(
+                &"rrbgbr",
+                &vec!["r", "wr", "b", "g", "bwu", "rb", "gb", "br"],
+                0,
+                &mut HashMap::new()
+            ),
+            6
+        );
+    }
+    #[test]
+    fn test_count_not_possible() {
+        assert_eq!(
+            count_possible(&"abc", &vec!["a", "b", "d"], 0, &mut HashMap::new()),
+            0
+        );
+        assert_eq!(
+            count_possible(
+                &"bbrgwb",
+                &vec!["r", "wr", "b", "g", "bwu", "rb", "gb", "br"],
+                0,
+                &mut HashMap::new()
+            ),
+            0
+        );
+    }
+}
