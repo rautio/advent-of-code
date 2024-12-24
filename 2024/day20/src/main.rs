@@ -30,6 +30,16 @@ impl Cursor {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+struct CheatCursor {
+    p: Pt,
+    path: Vec<Pt>,
+}
+impl CheatCursor {
+    pub fn new(p: Pt) -> Self {
+        CheatCursor { p, path: vec![] }
+    }
+}
 const N: Pt = Pt { x: 0, y: -1 };
 const E: Pt = Pt { x: 1, y: 0 };
 const S: Pt = Pt { x: 0, y: 1 };
@@ -98,7 +108,7 @@ fn min_path(start: Pt, end: Pt, grid: &HashMap<Pt, char>) -> (Vec<(Pt, i32)>, i3
             .into_iter()
             .map(|x| add(cur.p, x))
             .filter(|p| grid.contains_key(&p));
-        for mut n in next {
+        for n in next {
             if can_move(n, grid) {
                 if !seen.contains_key(&n) || *seen.get(&n).unwrap() >= cur.time {
                     seen.insert(n, cur.time + 1);
@@ -119,82 +129,86 @@ fn min_path(start: Pt, end: Pt, grid: &HashMap<Pt, char>) -> (Vec<(Pt, i32)>, i3
     (final_path, min_time)
 }
 
-fn get_cheats(path: Vec<(Pt, i32)>, grid: &HashMap<Pt, char>) -> Vec<(Pt, Pt)> {
-    let mut cheats: HashMap<(Pt, Pt), (Pt, Pt)> = HashMap::new();
-    let mut real_path: HashMap<Pt, i32> = HashMap::new();
-    for p in &path {
-        real_path.insert(p.0, p.1);
-    }
-    for p in path {
-        // 1 or 2 away has to be another part of the path that could cutoff a subsection
-        let first = vec![N, E, S, W]
-            .into_iter()
-            .map(|x| add(p.0, x))
-            .filter(|q| !real_path.contains_key(&q));
-        for p1 in first {
-            // p1 has to be '#' but p2 has to be != '#'
-            let second = vec![N, E, S, W]
+fn calc_distance(start: Pt, end: Pt) -> i32 {
+    (start.x - end.x).abs() + (start.y - end.y).abs()
+}
+
+fn get_cheat_paths(start: Pt, end: Pt, length: i32, grid: &HashMap<Pt, char>) -> Vec<Vec<Pt>> {
+    let mut seen: HashMap<Pt, i32> = HashMap::new();
+    seen.insert(start, 0);
+    let mut cursors = VecDeque::from([CheatCursor::new(start)]);
+    let mut possible_paths: Vec<Vec<Pt>> = Vec::new();
+    while cursors.len() > 0 {
+        let cur = cursors.pop_front().unwrap();
+        if cur.p == end && cur.path.len() as i32 == length {
+            possible_paths.push(cur.path.clone());
+        } else {
+            let next = vec![N, E, S, W]
                 .into_iter()
-                .map(|x| add(p1, x))
-                .filter(|q| {
-                    real_path.contains_key(&q) && *real_path.get(&q).unwrap() > p.1 && *q != p.0
+                .map(|x| add(cur.p, x))
+                .filter(|p| {
+                    grid.contains_key(&p)
+                        && (*grid.get(&p).unwrap() == '#' || *p == end)
+                        && !cur.path.contains(p)
                 });
-            // Each point should have 1 optimal cheat based on which steps count is highest
-            let mut max_steps = 0;
-            let mut best_p2 = 
-            for p2 in second {
-                if !cheats.contains_key(&(p1, p2)) && !cheats.contains_key(&(p2, p1)) {
-                    cheats.insert((p1, p2), (p1, p2));
+            for n in next {
+                let mut new_path = cur.path.clone();
+                new_path.push(n);
+                if new_path.len() as i32 <= length {
+                    cursors.push_back(CheatCursor {
+                        p: n,
+                        path: new_path,
+                    });
                 }
             }
         }
     }
-    let mut dedupped = cheats.clone();
-    for (k, c) in dedupped.clone().into_iter() {
-        if dedupped.contains_key(&(c.1, c.0)) {
-            dedupped.remove(&(c.1, c.0));
+
+    possible_paths
+}
+
+fn calc_cheats(
+    path: &Vec<(Pt, i32)>,
+    distance: i32,
+    grid: &HashMap<Pt, char>,
+) -> Vec<((Pt, Pt), i32)> {
+    let mut cheats: Vec<((Pt, Pt), i32)> = Vec::new();
+    let mut seen: HashMap<(Pt, Pt), (Pt, Pt)> = HashMap::new();
+
+    for i in 0..path.len() {
+        for j in i..path.len() {
+            let p1 = path[i];
+            let p2 = path[j];
+            if p2.1 > p1.1 {
+                let d = calc_distance(p1.0, p2.0);
+                if d == distance && !seen.contains_key(&(p1.0, p2.0)) {
+                    let paths = get_cheat_paths(p1.0, p2.0, distance, grid);
+                    if paths.len() > 0 {
+                        // saved = p2.time - p1.time - (cheat_path).len()
+                        cheats.push(((p1.0, p2.0), p2.1 - p1.1 - distance));
+                    }
+                }
+            }
+            seen.insert((p1.0, p2.0), (p1.0, p2.0));
+            seen.insert((p2.0, p1.0), (p2.0, p1.0));
         }
     }
 
-    cheats.values().cloned().collect()
+    cheats
 }
 
-fn cheat_min_path(
-    start: Pt,
-    end: Pt,
-    cheat: (Pt, Pt),
-    grid: &HashMap<Pt, char>,
-) -> (Vec<(Pt, i32)>, i32) {
-    let mut grid_copy = grid.clone();
-    grid_copy.insert(cheat.0, '.');
-    grid_copy.insert(cheat.1, '.');
-    min_path(start, end, &grid_copy)
-}
-
-fn num_cheats(start: Pt, end: Pt, grid: &HashMap<Pt, char>, min_cheat: i32) -> i32 {
+fn calc_num_cheats(start: Pt, end: Pt, grid: &HashMap<Pt, char>, min_cheat: i32) -> i32 {
     let mut total_cheats = 0;
-    let (mut no_cheat_path, min_time) = min_path(start, end, &grid);
-    // print_path(no_cheat_path.clone(), grid);
-    let cheats: Vec<(Pt, Pt)> = get_cheats(no_cheat_path, grid);
-    let mut cheats_map: HashMap<i32, i32> = HashMap::new();
+    let (no_cheat_path, _) = min_path(start, end, &grid);
+    let cheats: Vec<((Pt, Pt), i32)> = calc_cheats(&no_cheat_path, 2, grid);
+    // let mut cheats_map: HashMap<i32, i32> = HashMap::new();
     for c in cheats {
-        let (new_path, new_min_time) = cheat_min_path(start, end, c, grid);
-        // Both points in cheat have to be in the new path
-        let c1_idx = new_path.iter().position(|&q| q.0 == c.0);
-        let c2_idx = new_path.iter().position(|&q| q.0 == c.1);
-        if !c1_idx.is_none() && !c2_idx.is_none() {
-            // if new_min_time < min_time {
-            //     if min_time - new_min_time == 2 {
-            //         println!("cheat: {:?} - saves: {}", c, min_time - new_min_time);
-            //     }
-            //     cheats_map
-            //         .entry(min_time - new_min_time)
-            //         .and_modify(|c| *c += 1)
-            //         .or_insert(1);
-            // }
-            if min_time - new_min_time >= min_cheat {
-                total_cheats += 1;
-            }
+        // let p1 = c.0 .0;
+        // let p2 = c.0 .1;
+        let saved = c.1;
+        if saved >= min_cheat {
+            // cheats_map.entry(saved).and_modify(|c| *c += 1).or_insert(1);
+            total_cheats += 1;
         }
     }
     // let mut v: Vec<(i32, i32)> = cheats_map.into_iter().collect();
@@ -226,9 +240,7 @@ fn main() {
         }
         y += 1;
     }
-
-    println!("min_time: {}", num_cheats(start, end, &grid, 100));
-    println!("Part 1: {}", 0);
+    println!("Part 1: {}", calc_num_cheats(start, end, &grid, 100));
     println!("Part 2: {}", 0);
     println!("Done in: {:?}!", now.elapsed());
 }
