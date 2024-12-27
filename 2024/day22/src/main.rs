@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fs::read_to_string;
 use std::time::Instant;
 
@@ -9,18 +11,24 @@ fn prune(num: i64) -> i64 {
     num % 16777216
 }
 
+fn iterate(start: i64) -> i64 {
+    let mut secret = start;
+    let mut res = secret * 64;
+    let mut m = mix(res, secret);
+    secret = prune(m);
+    res = secret / 32;
+    m = mix(res, secret);
+    secret = prune(m);
+    res = secret * 2048;
+    m = mix(res, secret);
+    secret = prune(m);
+    secret
+}
+
 fn iterate_secret(start: i64, iterations: i64) -> i64 {
     let mut secret = start;
     for _ in 0..iterations {
-        let mut res = secret * 64;
-        let mut m = mix(res, secret);
-        secret = prune(m);
-        res = secret / 32;
-        m = mix(res, secret);
-        secret = prune(m);
-        res = secret * 2048;
-        m = mix(res, secret);
-        secret = prune(m);
+        secret = iterate(secret);
     }
     secret
 }
@@ -36,6 +44,39 @@ fn part1(secrets: &Vec<i64>) -> i64 {
     sum
 }
 
+fn part2(buyers: &Vec<i64>) -> i32 {
+    let mut bananas: HashMap<VecDeque<i32>, i32> = HashMap::new();
+    for s in buyers {
+        let mut buyer_bananas: HashMap<VecDeque<i32>, i32> = HashMap::new();
+        let mut pattern: VecDeque<i32> = VecDeque::new();
+        let mut secret = *s;
+        let mut price = (secret % 10) as i32;
+        secret = iterate(secret);
+        for _ in 1..2001 {
+            let new_price = (secret % 10) as i32;
+            pattern.push_back(new_price - price);
+            price = new_price;
+            if pattern.len() == 4 {
+                if !buyer_bananas.contains_key(&pattern) {
+                    buyer_bananas.insert(pattern.clone(), new_price);
+                }
+                pattern.pop_front();
+            }
+            secret = iterate(secret);
+        }
+        for (k, v) in buyer_bananas.into_iter() {
+            *bananas.entry(k).or_default() += v;
+        }
+    }
+
+    let mut max = 0;
+    for (_, v) in bananas.into_iter() {
+        if v > max {
+            max = v;
+        }
+    }
+    max
+}
 fn main() {
     let mut now = Instant::now();
     let mut secrets: Vec<i64> = Vec::new();
@@ -47,7 +88,7 @@ fn main() {
     println!("Done in: {:?}!", now.elapsed());
     // Part 2
     now = Instant::now();
-    println!("Part 2: {}", 0);
+    println!("Part 2: {}", part2(&secrets));
     println!("Done in: {:?}!", now.elapsed());
 }
 
