@@ -8,70 +8,79 @@ lazy_static! {
     static ref re_prog: Regex = Regex::new(r"Program: (.*)").unwrap();
 }
 
-fn run_program(registers: &(i32, i32, i32), program: &Vec<i32>) -> (Vec<i32>, (i32, i32, i32)) {
-    let mut output: Vec<i32> = Vec::new();
-    let mut reg = registers.clone();
+#[derive(Debug)]
+#[repr(u8)]
+enum Opcode {
+    ADV = 0,
+    BXL = 1,
+    BST = 2,
+    JNZ = 3,
+    BXC = 4,
+    OUT = 5,
+    BDV = 6,
+    CDV = 7,
+}
+
+impl From<u8> for Opcode {
+    fn from(value: u8) -> Self {
+        unsafe { std::mem::transmute::<u8, Opcode>(value) }
+    }
+}
+
+const A: usize = 4;
+const B: usize = 5;
+const C: usize = 6;
+
+fn run_program(registers: &(i32, i32, i32), program: &Vec<u8>) -> (Vec<u8>, (i32, i32, i32)) {
+    let mut output: Vec<u8> = Vec::new();
+    let mut reg = [0, 1, 2, 3, registers.0, registers.1, registers.2];
 
     let mut idx = 0;
     while idx < program.len() {
-        let opcode = program[idx];
-        let literal_operand = program[idx + 1];
-        let mut combo_operand = literal_operand;
+        let operand = program[idx + 1] as usize;
         let mut jumped = false;
-        match literal_operand {
-            4 => {
-                combo_operand = reg.0;
-            }
-            5 => {
-                combo_operand = reg.1;
-            }
-            6 => {
-                combo_operand = reg.2;
-            }
-            _ => {}
-        }
-        match opcode {
-            0 => {
+        let op = Opcode::from(program[idx]);
+        match op {
+            // 0
+            Opcode::ADV => {
                 let base: i32 = 2;
-                reg.0 = reg.0 / base.pow(combo_operand as u32);
+                reg[A] = reg[A] / base.pow(reg[operand] as u32);
             }
-            1 => {
-                reg.1 = reg.1 ^ literal_operand;
-            }
-            2 => {
-                reg.1 = combo_operand % 8;
-            }
-            3 => {
-                if reg.0 != 0 {
-                    idx = literal_operand as usize;
+            // 1
+            Opcode::BXL => reg[B] ^= operand as i32,
+            // 2
+            Opcode::BST => reg[B] = reg[operand] % 8,
+            // 3
+            Opcode::JNZ => {
+                if reg[A] != 0 {
+                    idx = operand as usize;
                     jumped = true;
                 }
             }
-            4 => {
-                reg.1 = reg.1 ^ reg.2;
-            }
-            5 => {
-                output.push(combo_operand % 8);
-            }
-            6 => {
+            // 4
+            Opcode::BXC => reg[B] = reg[B] ^ reg[C],
+            // 5
+            Opcode::OUT => output.push((reg[operand] % 8) as u8),
+            // 6
+            Opcode::BDV => {
                 let base: i32 = 2;
-                reg.1 = reg.0 / base.pow(combo_operand as u32);
+                reg[B] = reg[A] / base.pow(reg[operand] as u32);
             }
-            7 => {
+            // 7
+            Opcode::CDV => {
                 let base: i32 = 2;
-                reg.2 = reg.0 / base.pow(combo_operand as u32);
+                reg[C] = reg[A] / base.pow(reg[operand] as u32);
             }
-            _ => {}
         }
         if !jumped {
             idx += 2;
         }
     }
 
-    (output, reg)
+    (output, (reg[A], reg[B], reg[C]))
 }
 
-fn solve_part1(registers: &(i32, i32, i32), program: &Vec<i32>) -> String {
+fn solve_part1(registers: &(i32, i32, i32), program: &Vec<u8>) -> String {
     let (output, _) = run_program(registers, program);
 
     output
@@ -80,10 +89,17 @@ fn solve_part1(registers: &(i32, i32, i32), program: &Vec<i32>) -> String {
         .collect::<String>()
 }
 
+fn solve_part2(program: &Vec<u8>, expected: String) -> i32 {
+    let mut possible: Vec<u8> = Vec::new();
+    // let A2 = A << | 0;
+
+    0
+}
+
 fn main() {
     let mut now = Instant::now();
     let mut registers: (i32, i32, i32) = (0, 0, 0);
-    let mut program: Vec<i32> = Vec::new();
+    let mut program: Vec<u8> = Vec::new();
     for line in read_to_string("./src/input.txt").unwrap().lines() {
         match re_reg.captures(line) {
             Some(cap_reg) => {
@@ -107,18 +123,19 @@ fn main() {
             Some(cap_prog) => {
                 program = cap_prog[1]
                     .split(',')
-                    .map(|x| x.parse::<i32>().unwrap())
+                    .map(|x| x.parse::<u8>().unwrap())
                     .collect();
             }
             None => {}
         }
     }
     // Part 1
-    println!("Part 1: {}", solve_part1(&registers, &program));
+    let output = solve_part1(&registers, &program);
+    println!("Part 1: {}", output);
     println!("Done in: {:?}!", now.elapsed());
     // Part 2
     now = Instant::now();
-    println!("Part 2: {}", 0);
+    println!("Part 2: {}", solve_part2(&program, output));
     println!("Done in: {:?}!", now.elapsed());
 }
 
@@ -131,13 +148,13 @@ mod tests {
         // Operands
         assert_eq!(run_program(&(10, 0, 0), &vec![0, 2]), (vec![], (2, 0, 0)));
         assert_eq!(run_program(&(0, 12, 0), &vec![1, 16]), (vec![], (0, 28, 0)));
-        assert_eq!(run_program(&(0, 0, 0), &vec![2, 12]), (vec![], (0, 4, 0)));
+        assert_eq!(run_program(&(0, 0, 9), &vec![2, 6]), (vec![], (0, 1, 9)));
         assert_eq!(
-            run_program(&(10, 0, 0), &vec![3, 2, 2, 12]),
-            (vec![], (10, 4, 0))
+            run_program(&(10, 0, 4), &vec![3, 2, 2, 6]),
+            (vec![], (10, 4, 4))
         );
         assert_eq!(
-            run_program(&(0, 22, 35), &vec![4, 10000]),
+            run_program(&(0, 22, 35), &vec![4, 6]),
             (vec![], (0, 53, 35))
         );
         assert_eq!(
