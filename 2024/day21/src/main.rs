@@ -19,11 +19,6 @@ struct Cursor {
     pos: Pt,
     seq: Vec<char>,
 }
-impl Cursor {
-    pub fn new(pos: Pt) -> Self {
-        Cursor { pos, seq: vec![] }
-    }
-}
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 struct Dir {
@@ -105,6 +100,29 @@ fn dist(p1: Pt, p2: Pt) -> i32 {
 +---+---+---+
 */
 
+fn score_seq(seq: Vec<char>) -> usize {
+    let mut steps = 0;
+
+    let mut cur = 'A';
+    let mut second_seq: Vec<char> = Vec::new();
+    for (_, target) in seq.into_iter().enumerate() {
+        let mut new_seq = generate_seq(cur, target, get_dir_pad())[0].clone();
+        // two-layer scoring
+
+        cur = target;
+        second_seq.append(&mut new_seq);
+    }
+    cur = 'A';
+    for (_, target) in second_seq.into_iter().enumerate() {
+        let new_seq = generate_seq(cur, target, get_dir_pad())[0].clone();
+        // two-layer scoring
+        cur = target;
+        steps += new_seq.len();
+    }
+
+    steps
+}
+
 fn generate_seq(cur: char, target: char, grid: HashMap<Pt, char>) -> Vec<Vec<char>> {
     let mut c = Pt::new(0, 0);
     let mut t = Pt::new(0, 0);
@@ -135,7 +153,7 @@ fn generate_seq(cur: char, target: char, grid: HashMap<Pt, char>) -> Vec<Vec<cha
                 pos: add(dir.pos, cur.pos),
                 c: dir.c,
             })
-            .filter(|dir| grid.contains_key(&dir.pos) && dist(dir.pos, t) <= d);
+            .filter(|dir| grid.contains_key(&dir.pos) && dist(dir.pos, t) < d);
         for n in next {
             let mut seq = cur.seq.clone();
             seq.push(n.c);
@@ -214,12 +232,15 @@ fn seq(code: &str, dir_pads: usize) -> String {
     for (_, target) in code.chars().enumerate() {
         // NumPad
         let mut seqs: Vec<Vec<char>> = generate_seq(cur_numpad, target, get_num_pad());
+        seqs.sort_by(|a, b| score_seq(a.clone()).cmp(&score_seq(b.clone())));
         let mut seq = seqs[0].clone();
         for _ in 0..dir_pads {
             let mut new_seq: Vec<char> = Vec::new();
             let mut dir_cur = 'A';
             for (_, dir_target) in seq.clone().into_iter().enumerate() {
-                let mut dir_seq = generate_seq(dir_cur, dir_target, get_dir_pad())[0].clone();
+                let mut dir_seqs = generate_seq(dir_cur, dir_target, get_dir_pad());
+                dir_seqs.sort_by(|a, b| score_seq(a.clone()).cmp(&score_seq(b.clone())));
+                let mut dir_seq = dir_seqs[0].clone();
                 new_seq.append(&mut dir_seq);
                 // Iterate cur seq
                 dir_cur = dir_target;
@@ -238,8 +259,8 @@ fn solve_part1(codes: &Vec<&str>) -> i32 {
 
     for code in codes {
         let s = seq(code, 2);
-        println!("code: {}, sequence: {}", code, s);
-        break;
+        let num = &code[..code.len() - 1].parse::<i32>().unwrap();
+        complexity += s.len() as i32 * num;
     }
 
     complexity
@@ -248,11 +269,10 @@ fn solve_part1(codes: &Vec<&str>) -> i32 {
 fn main() {
     let mut now = Instant::now();
     let mut codes: Vec<&str> = Vec::new();
-    let binding = read_to_string("./src/test.txt").unwrap();
+    let binding = read_to_string("./src/input.txt").unwrap();
     for line in binding.lines() {
         codes.push(line);
     }
-    println!("codes: {:?}", codes);
     // Part 1
     println!("Part 1: {}", solve_part1(&codes));
     println!("Done in: {:?}!", now.elapsed());
@@ -332,29 +352,60 @@ mod tests {
             String::from_iter(generate_seq('A', 'v', get_dir_pad())[0].clone()),
             "v<A"
         );
+        assert_eq!(
+            generate_seq('3', '7', get_num_pad()),
+            vec!["^^<<A", "^<^<A", "^<<^A", "<^^<A", "<^<^A", "<<^^A"]
+                .into_iter()
+                .map(|s| s.chars().collect::<Vec<char>>())
+                .collect::<Vec<Vec<char>>>()
+        );
+    }
+    #[test]
+    fn test_score_seq() {
+        assert_eq!(score_seq(">>^A".chars().collect::<Vec<char>>()), 20);
+        assert_eq!(score_seq(">^>A".chars().collect::<Vec<char>>()), 26);
+        let mut v = vec!["^^<<A", "^<^<A", "^<<^A", "<^^<A", "<^<^A", "<<^^A"]
+            .into_iter()
+            .map(|s| s.chars().collect::<Vec<char>>())
+            .collect::<Vec<Vec<char>>>();
+        v.sort_by(|a, b| score_seq(a.clone()).cmp(&score_seq(b.clone())));
+        assert_eq!(
+            v,
+            vec!["<<^^A", "^^<<A", "^<<^A", "<^^<A", "<^<^A", "^<^<A"]
+                .into_iter()
+                .map(|s| s.chars().collect::<Vec<char>>())
+                .collect::<Vec<Vec<char>>>()
+        );
+        assert_eq!(
+            v.into_iter().map(|s| score_seq(s)).collect::<Vec<usize>>(),
+            vec![23, 29, 29, 37, 37, 43]
+        );
+        assert_eq!(score_seq("<v<AA>^AA>A".chars().collect::<Vec<char>>()), 25);
+        assert_eq!(score_seq("<AAv<AA>>^A".chars().collect::<Vec<char>>()), 27);
     }
 
     #[test]
     fn test_seq() {
         assert_eq!(seq("029A", 0), "<A^A^^>AvvvA");
         assert_eq!(seq("029A", 1).len(), "v<<A>>^A<A>AvA<^AA>A<vAAA>^A".len());
-        assert_eq!(seq("96783", 1), "<AAA>Av<A^>A<Av<AA>^>AvA^AvA<AA^>A");
-        // assert_eq!(
-        //     seq("029A", 2).len(),
-        //     "<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A".len()
-        // );
-        // assert_eq!(
-        //     seq("980A", 2).len(),
-        //     "<v<A>>^AAAvA^A<vA<AA>>^AvAA<^A>A<v<A>A>^AAAvA<^A>A<vA>^A<A>A".len()
-        // );
-        // assert_eq!(
-        //     seq("179A", 2).len(),
-        //     "<v<A>>^A<vA<A>>^AAvAA<^A>A<v<A>>^AAvA^A<vA>^AA<A>A<v<A>A>^AAAvA<^A>A".len()
-        // );
-        // assert_eq!(
-        //     seq("456A", 2).len(),
-        //     "<v<A>>^AA<vA<A>>^AAvAA<^A>A<vA>^A<A>A<vA>^A<A>A<v<A>A>^AAvA<^A>A".len()
-        // );
+        assert_eq!(seq("96783", 1), "<AAA>A<vA^>Av<<AA>^A>AvA^A<vAA>A^A");
+        assert_eq!(
+            seq("029A", 2).len(),
+            "<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A".len()
+        );
+        assert_eq!(
+            seq("980A", 2).len(),
+            "<v<A>>^AAAvA^A<vA<AA>>^AvAA<^A>A<v<A>A>^AAAvA<^A>A<vA>^A<A>A".len()
+        );
+        assert_eq!(
+            seq("179A", 2).len(),
+            "<v<A>>^A<vA<A>>^AAvAA<^A>A<v<A>>^AAvA^A<vA>^AA<A>A<v<A>A>^AAAvA<^A>A".len()
+        );
+        assert_eq!(
+            seq("456A", 2).len(),
+            "<v<A>>^AA<vA<A>>^AAvAA<^A>A<vA>^A<A>A<vA>^A<A>A<v<A>A>^AAvA<^A>A".len()
+        );
+
         assert_eq!(
             seq("379A", 2).len(),
             "<v<A>>^AvA^A<vA<AA>>^AAvA<^A>AAvA^A<vA>^AA<A>A<v<A>A>^AAAvA<^A>A".len()
