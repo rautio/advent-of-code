@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::VecDeque;
 use std::fs::read_to_string;
 use std::time::Instant;
 
@@ -31,7 +32,7 @@ const A: usize = 4;
 const B: usize = 5;
 const C: usize = 6;
 
-fn run_program(registers: &(i32, i32, i32), program: &Vec<u8>) -> (Vec<u8>, (i32, i32, i32)) {
+fn exec(registers: &(i64, i64, i64), program: &Vec<u8>) -> (Vec<u8>, (i64, i64, i64)) {
     let mut output: Vec<u8> = Vec::new();
     let mut reg = [0, 1, 2, 3, registers.0, registers.1, registers.2];
 
@@ -45,7 +46,7 @@ fn run_program(registers: &(i32, i32, i32), program: &Vec<u8>) -> (Vec<u8>, (i32
             // 0
             Opcode::ADV => reg[A] = reg[A] >> reg[operand],
             // 1
-            Opcode::BXL => reg[B] ^= operand as i32,
+            Opcode::BXL => reg[B] ^= operand as i64,
             // 2
             Opcode::BST => reg[B] = reg[operand] % 8,
             // 3
@@ -71,8 +72,8 @@ fn run_program(registers: &(i32, i32, i32), program: &Vec<u8>) -> (Vec<u8>, (i32
     (output, (reg[A], reg[B], reg[C]))
 }
 
-fn solve_part1(registers: &(i32, i32, i32), program: &Vec<u8>) -> String {
-    let (output, _) = run_program(registers, program);
+fn solve_part1(registers: &(i64, i64, i64), program: &Vec<u8>) -> String {
+    let (output, _) = exec(registers, program);
 
     output
         .iter()
@@ -80,21 +81,33 @@ fn solve_part1(registers: &(i32, i32, i32), program: &Vec<u8>) -> String {
         .collect::<String>()
 }
 
-fn solve_part2(program: &Vec<u8>, expected: String) -> i32 {
-    let mut possible: Vec<u8> = Vec::new();
-    // let A2 = A << | 0;
+fn solve_part2(program: &Vec<u8>) -> i64 {
+    let mut to_visit = VecDeque::from([(program.len(), 0)]);
+
+    while let Some((pos, a)) = to_visit.pop_front() {
+        for i in 0..8 {
+            let new_a: i64 = a * 8 + i;
+            let (o, _) = exec(&(new_a, 0, 0), program);
+            if o.iter().map(|a| *a).collect::<Vec<_>>() == program[pos - 1..] {
+                to_visit.push_back((pos - 1, new_a));
+                if o.len() == program.len() {
+                    return new_a;
+                }
+            }
+        }
+    }
 
     0
 }
 
 fn main() {
     let mut now = Instant::now();
-    let mut registers: (i32, i32, i32) = (0, 0, 0);
+    let mut registers: (i64, i64, i64) = (0, 0, 0);
     let mut program: Vec<u8> = Vec::new();
     for line in read_to_string("./src/input.txt").unwrap().lines() {
         match re_reg.captures(line) {
             Some(cap_reg) => {
-                let val = cap_reg[2].parse::<i32>().unwrap();
+                let val = cap_reg[2].parse::<i64>().unwrap();
                 match &cap_reg[1] {
                     "A" => {
                         registers.0 = val;
@@ -126,7 +139,7 @@ fn main() {
     println!("Done in: {:?}!", now.elapsed());
     // Part 2
     now = Instant::now();
-    println!("Part 2: {}", solve_part2(&program, output));
+    println!("Part 2: {}", solve_part2(&program));
     println!("Done in: {:?}!", now.elapsed());
 }
 
@@ -135,38 +148,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_run_program() {
+    fn test_exec() {
         // Operands
-        assert_eq!(run_program(&(10, 0, 0), &vec![0, 2]), (vec![], (2, 0, 0)));
-        assert_eq!(run_program(&(0, 12, 0), &vec![1, 16]), (vec![], (0, 28, 0)));
-        assert_eq!(run_program(&(0, 0, 9), &vec![2, 6]), (vec![], (0, 1, 9)));
-        assert_eq!(
-            run_program(&(10, 0, 4), &vec![3, 2, 2, 6]),
-            (vec![], (10, 4, 4))
-        );
-        assert_eq!(
-            run_program(&(0, 22, 35), &vec![4, 6]),
-            (vec![], (0, 53, 35))
-        );
-        assert_eq!(
-            run_program(&(11, 22, 35), &vec![5, 6]),
-            (vec![3], (11, 22, 35))
-        );
-        assert_eq!(run_program(&(19, 0, 0), &vec![6, 1]), (vec![], (19, 9, 0)));
-        assert_eq!(run_program(&(19, 0, 0), &vec![7, 1]), (vec![], (19, 0, 9)));
+        assert_eq!(exec(&(10, 0, 0), &vec![0, 2]), (vec![], (2, 0, 0)));
+        assert_eq!(exec(&(0, 12, 0), &vec![1, 16]), (vec![], (0, 28, 0)));
+        assert_eq!(exec(&(0, 0, 9), &vec![2, 6]), (vec![], (0, 1, 9)));
+        assert_eq!(exec(&(10, 0, 4), &vec![3, 2, 2, 6]), (vec![], (10, 4, 4)));
+        assert_eq!(exec(&(0, 22, 35), &vec![4, 6]), (vec![], (0, 53, 35)));
+        assert_eq!(exec(&(11, 22, 35), &vec![5, 6]), (vec![3], (11, 22, 35)));
+        assert_eq!(exec(&(19, 0, 0), &vec![6, 1]), (vec![], (19, 9, 0)));
+        assert_eq!(exec(&(19, 0, 0), &vec![7, 1]), (vec![], (19, 0, 9)));
         // Compound
-        assert_eq!(run_program(&(0, 0, 9), &vec![2, 6]), (vec![], (0, 1, 9)));
+        assert_eq!(exec(&(0, 0, 9), &vec![2, 6]), (vec![], (0, 1, 9)));
         assert_eq!(
-            run_program(&(10, 0, 0), &vec![5, 0, 5, 1, 5, 4]),
+            exec(&(10, 0, 0), &vec![5, 0, 5, 1, 5, 4]),
             (vec![0, 1, 2], (10, 0, 0))
         );
         assert_eq!(
-            run_program(&(2024, 0, 0), &vec![0, 1, 5, 4, 3, 0]),
+            exec(&(2024, 0, 0), &vec![0, 1, 5, 4, 3, 0]),
             (vec![4, 2, 5, 6, 7, 7, 7, 7, 3, 1, 0], (0, 0, 0))
         );
-        assert_eq!(run_program(&(0, 29, 0), &vec![1, 7]), (vec![], (0, 26, 0)));
+        assert_eq!(exec(&(0, 29, 0), &vec![1, 7]), (vec![], (0, 26, 0)));
         assert_eq!(
-            run_program(&(0, 2024, 43690), &vec![4, 0]),
+            exec(&(0, 2024, 43690), &vec![4, 0]),
             (vec![], (0, 44354, 43690))
         );
     }
