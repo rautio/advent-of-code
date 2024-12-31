@@ -40,21 +40,20 @@ fn run_program(registers: &(i32, i32, i32), program: &Vec<u8>) -> (Vec<u8>, (i32
         let operand = program[idx + 1] as usize;
         let mut jumped = false;
         let op = Opcode::from(program[idx]);
+        let mut new_idx = idx + 2;
         match op {
             // 0
-            Opcode::ADV => {
-                let base: i32 = 2;
-                reg[A] = reg[A] / base.pow(reg[operand] as u32);
-            }
+            Opcode::ADV => reg[A] = reg[A] >> reg[operand],
             // 1
             Opcode::BXL => reg[B] ^= operand as i32,
             // 2
             Opcode::BST => reg[B] = reg[operand] % 8,
             // 3
             Opcode::JNZ => {
-                if reg[A] != 0 {
-                    idx = operand as usize;
-                    jumped = true;
+                new_idx = if reg[A] != 0 {
+                    operand as usize
+                } else {
+                    new_idx
                 }
             }
             // 4
@@ -62,19 +61,11 @@ fn run_program(registers: &(i32, i32, i32), program: &Vec<u8>) -> (Vec<u8>, (i32
             // 5
             Opcode::OUT => output.push((reg[operand] % 8) as u8),
             // 6
-            Opcode::BDV => {
-                let base: i32 = 2;
-                reg[B] = reg[A] / base.pow(reg[operand] as u32);
-            }
+            Opcode::BDV => reg[B] = reg[A] >> reg[operand],
             // 7
-            Opcode::CDV => {
-                let base: i32 = 2;
-                reg[C] = reg[A] / base.pow(reg[operand] as u32);
-            }
+            Opcode::CDV => reg[C] = reg[A] >> reg[operand],
         }
-        if !jumped {
-            idx += 2;
-        }
+        idx = new_idx;
     }
 
     (output, (reg[A], reg[B], reg[C]))
