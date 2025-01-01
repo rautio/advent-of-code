@@ -225,7 +225,47 @@ fn press_seq(seq: String, num_robots: usize) -> String {
     String::from_iter(output)
 }
 
+fn seq_cached(
+    code: String,
+    depth: usize,
+    max_depth: usize,
+    cache: &mut HashMap<(usize, String), usize>,
+) -> usize {
+    if let Some(&cached) = cache.get(&(depth, code.clone())) {
+        return cached;
+    }
+
+    let grid = if depth == 0 {
+        get_num_pad()
+    } else {
+        get_dir_pad()
+    };
+
+    let mut cur = 'A';
+    let mut res = 0;
+
+    for (_, target) in code.chars().enumerate() {
+        let mut seqs: Vec<Vec<char>> = generate_seq(cur, target, grid.clone());
+        seqs.sort_by(|a, b| score_seq(a.clone()).cmp(&score_seq(b.clone())));
+        if depth == max_depth {
+            res += seqs[0].len();
+        } else {
+            res += seq_cached(
+                String::from_iter(seqs[0].clone()),
+                depth + 1,
+                max_depth,
+                cache,
+            );
+        }
+        cur = target;
+    }
+
+    cache.insert((depth, code), res);
+    res
+}
+
 fn seq(code: &str, dir_pads: usize) -> String {
+    let mut dir_memo: HashMap<(char, char), Vec<char>> = HashMap::new();
     // Minimize 0-2, 2-7, 7-9, 9-A
     let mut final_seq: Vec<char> = Vec::new();
     let mut cur_numpad = 'A';
@@ -238,9 +278,15 @@ fn seq(code: &str, dir_pads: usize) -> String {
             let mut new_seq: Vec<char> = Vec::new();
             let mut dir_cur = 'A';
             for (_, dir_target) in seq.clone().into_iter().enumerate() {
-                let mut dir_seqs = generate_seq(dir_cur, dir_target, get_dir_pad());
-                dir_seqs.sort_by(|a, b| score_seq(a.clone()).cmp(&score_seq(b.clone())));
-                let mut dir_seq = dir_seqs[0].clone();
+                let mut dir_seq: Vec<char> = Vec::new();
+                if dir_memo.contains_key(&(dir_cur, dir_target)) {
+                    dir_seq = dir_memo.get(&(dir_cur, dir_target)).unwrap().clone();
+                } else {
+                    let mut dir_seqs = generate_seq(dir_cur, dir_target, get_dir_pad());
+                    dir_seqs.sort_by(|a, b| score_seq(a.clone()).cmp(&score_seq(b.clone())));
+                    dir_seq = dir_seqs[0].clone();
+                    dir_memo.insert((dir_cur, dir_target), dir_seq.clone());
+                }
                 new_seq.append(&mut dir_seq);
                 // Iterate cur seq
                 dir_cur = dir_target;
@@ -256,11 +302,30 @@ fn seq(code: &str, dir_pads: usize) -> String {
 
 fn solve_part1(codes: &Vec<&str>) -> i32 {
     let mut complexity = 0;
+    let mut cached_complexity = 0;
+    let mut cache = HashMap::new();
 
     for code in codes {
-        let s = seq(code, 2);
+        let s_cache = seq_cached(code.to_string(), 0, 2, &mut cache);
+        let s = seq(code, 2).len();
         let num = &code[..code.len() - 1].parse::<i32>().unwrap();
-        complexity += s.len() as i32 * num;
+        complexity += s as i32 * num;
+        cached_complexity += s_cache as i32 * num;
+    }
+
+    assert_eq!(cached_complexity, complexity);
+
+    cached_complexity
+}
+
+fn solve_part2(codes: &Vec<&str>) -> i64 {
+    let mut complexity = 0;
+
+    let mut cache = HashMap::new();
+    for code in codes {
+        let s = seq_cached(code.to_string(), 0, 25, &mut cache);
+        let num = &code[..code.len() - 1].parse::<i64>().unwrap();
+        complexity += s as i64 * num;
     }
 
     complexity
@@ -278,7 +343,7 @@ fn main() {
     println!("Done in: {:?}!", now.elapsed());
     // Part 2
     now = Instant::now();
-    println!("Part 2: {}", 0);
+    println!("Part 2: {}", solve_part2(&codes));
     println!("Done in: {:?}!", now.elapsed());
 }
 
@@ -380,8 +445,8 @@ mod tests {
             v.into_iter().map(|s| score_seq(s)).collect::<Vec<usize>>(),
             vec![23, 29, 29, 37, 37, 43]
         );
-        assert_eq!(score_seq("<v<AA>^AA>A".chars().collect::<Vec<char>>()), 25);
-        assert_eq!(score_seq("<AAv<AA>>^A".chars().collect::<Vec<char>>()), 27);
+        assert_eq!(score_seq("<v<AA>^AA>A".chars().collect::<Vec<char>>()), 63);
+        assert_eq!(score_seq("<AAv<AA>>^A".chars().collect::<Vec<char>>()), 69);
     }
 
     #[test]
@@ -472,5 +537,14 @@ mod tests {
         assert_eq!(press_seq(seq("96783", 2), 2), "96783");
         assert_eq!(press_seq(seq("1027", 3), 3), "1027");
         assert_eq!(press_seq(seq("52A", 4), 4), "52A");
+    }
+
+    #[test]
+    fn test_seq_cached() {
+        let mut cache = HashMap::new();
+        assert_eq!(
+            seq_cached(String::from("0A"), 0, 0, &mut cache),
+            seq("0A", 0).len()
+        );
     }
 }
